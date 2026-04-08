@@ -1,26 +1,7 @@
 ---
 name: openai-agents
 description: OpenAI Agents SDK 기반 Python AI 에이전트 생성. Agent/Runner, 가드레일, 핸드오프, MCP 서버, Voice 파이프라인, Streamlit UI 통합 포함.
-argument-hint: [agent-name] [description]
-allowed-tools:
-  - Bash
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - Task
-dependencies: []
-triggers:
-  - openai agents
-  - openai agent
-  - agents sdk
-  - agent sdk
-  - guardrail
-  - handoff
-  - voice pipeline
-  - function_tool
-  - triage agent
+argument-hint: "agent-name description"
 ---
 
 # OpenAI Agents SDK 에이전트 생성

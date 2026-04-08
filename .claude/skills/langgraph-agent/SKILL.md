@@ -1,7 +1,7 @@
 ---
 name: langgraph-agent
 description: LangGraph 기반 Python/TypeScript AI 에이전트를 Clean Architecture 구조로 생성할 때 사용. 새 에이전트 프로젝트 셋업, StateGraph 설계, 툴/메모리/스트리밍 구현을 포함.
-argument-hint: [language] [agent-name] [description]
+argument-hint: "language agent-name description"
 ---
 
 # LangGraph Agent 생성 (Clean Architecture)

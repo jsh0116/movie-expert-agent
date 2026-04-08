@@ -1,27 +1,7 @@
 ---
 name: agent-evaluation
 description: AI 에이전트 평가 및 테스트 시스템 구축. Evalset 설계, 자동화 테스트, 품질 메트릭 수집, Google ADK eval 통합, 프레임워크별 테스트 패턴 포함.
-argument-hint: [framework] [agent-name]
-allowed-tools:
-  - Bash
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - Task
-dependencies: []
-triggers:
-  - agent evaluation
-  - agent test
-  - evalset
-  - eval set
-  - agent quality
-  - agent metric
-  - test agent
-  - 에이전트 평가
-  - 에이전트 테스트
-  - benchmark agent
+argument-hint: "framework agent-name"
 ---
 
 # AI 에이전트 평가 시스템 구축

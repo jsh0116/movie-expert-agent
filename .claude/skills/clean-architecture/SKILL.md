@@ -1,30 +1,6 @@
 ---
 name: clean-architecture
-description: Clean Architecture and SOLID principles implementation including dependency injection, layer separation, domain-driven design, hexagonal architecture, and code quality patterns
-allowed-tools:
-  - Bash
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - Task
-dependencies: []
-triggers:
-  - clean architecture
-  - solid principles
-  - dependency injection
-  - clean code
-  - hexagonal architecture
-  - domain driven design
-  - ddd
-  - layer architecture
-  - onion architecture
-  - code quality
-  - refactoring
-  - design patterns
-  - inversion of control
-  - ioc
+description: Clean Architecture and SOLID principles implementation including dependency injection, layer separation, domain-driven design, hexagonal architecture, and code quality patterns. Use when user asks about "clean architecture", "SOLID", "hexagonal", "DDD", or "layer separation".
 ---
 
 # Clean Architecture Skill

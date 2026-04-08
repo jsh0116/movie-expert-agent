@@ -1,25 +1,7 @@
 ---
 name: crewai-agent
 description: CrewAI 기반 Python 멀티 에이전트 시스템 생성. CrewBase 패턴, YAML 설정, Flow 오케스트레이션, Knowledge Sources, 구조화 출력 포함.
-argument-hint: [agent-name] [description]
-allowed-tools:
-  - Bash
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - Task
-dependencies: []
-triggers:
-  - crewai
-  - crew ai
-  - crew agent
-  - crew task
-  - crewbase
-  - yaml agent
-  - flow orchestration
-  - knowledge source
+argument-hint: "agent-name description"
 ---
 
 # CrewAI 에이전트 생성

@@ -1,24 +1,7 @@
 ---
 name: mcp-server
 description: MCP(Model Context Protocol) 도구 서버 생성 및 에이전트 통합. 커스텀 MCP 서버 구현, MCPServerStdio/HostedMCPTool 연동, 도구 노출 패턴 포함.
-argument-hint: [server-name] [description]
-allowed-tools:
-  - Bash
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - Task
-dependencies: []
-triggers:
-  - mcp server
-  - mcp tool
-  - model context protocol
-  - tool server
-  - mcpserverstdio
-  - hosted mcp
-  - mcp 서버
+argument-hint: "server-name description"
 ---
 
 # MCP 도구 서버 생성

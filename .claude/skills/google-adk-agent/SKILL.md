@@ -1,28 +1,7 @@
 ---
 name: google-adk-agent
 description: Google ADK(Agent Development Kit) 기반 Python AI 에이전트 생성. 계층적 sub-agent, AgentTool, ToolContext 상태/아티팩트, 콜백, Vertex AI 배포 포함.
-argument-hint: [agent-name] [description]
-allowed-tools:
-  - Bash
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - Task
-dependencies: []
-triggers:
-  - google adk
-  - adk agent
-  - agent development kit
-  - agenttool
-  - toolcontext
-  - vertex ai agent
-  - litellm agent
-  - root_agent
-  - sub agent hierarchy
-  - parallel agent
-  - sequential agent
+argument-hint: "agent-name description"
 ---
 
 # Google ADK 에이전트 생성
