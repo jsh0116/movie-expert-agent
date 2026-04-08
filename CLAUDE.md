@@ -4,30 +4,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-OpenAI Agents SDK + Clean Architecture로 구현한 영화 전문가 에이전트. 외부 영화 API(`https://nomad-movies.nomadcoders.workers.dev`)를 호출하여 인기 영화, 상세 정보, 출연진/제작진을 조회한다.
+AI 에이전트 예제 모음 레포지토리. 각 서브디렉토리가 독립적인 에이전트 프로젝트이며, 개별 `pyproject.toml`, `.venv`, `uv.lock`을 갖는다.
+
+## Structure
+
+```
+ai-agent-example/
+├── movie-expert-agent/   # OpenAI Agents SDK + Clean Architecture 영화 추천 에이전트
+└── ...                   # 향후 추가될 에이전트 프로젝트
+```
+
+각 서브프로젝트는 자체 CLAUDE.md를 가지고 있으므로, 해당 프로젝트 작업 시 서브프로젝트의 CLAUDE.md를 참고할 것.
 
 ## Commands
 
+서브프로젝트 단위로 실행:
+
 ```bash
+cd <project-dir>
 uv sync                        # 의존성 설치
-uv run python src/main.py      # CLI 실행
-uv run jupyter notebook main.ipynb  # 노트북 실행
+uv run python src/main.py      # CLI 실행 (프로젝트에 따라 다름)
 ```
-
-## Architecture
-
-Clean Architecture 4계층 구조:
-
-- **Domain** (`src/domain/`) — Pydantic 엔티티(`Movie`, `CastMember`, `CrewMember`, `MovieCredits`)와 포트(`IMovieRepository` ABC)
-- **Application** (`src/application/use_cases/`) — 유스케이스 클래스. 포트를 주입받아 비즈니스 로직 실행
-- **Infrastructure** (`src/infrastructure/`) — `MovieAPIRepository`(httpx AsyncClient로 외부 API 호출), `env_config.py`(환경변수)
-- **Adapters** (`src/adapters/`) — OpenAI Agents SDK 통합. `@function_tool` 데코레이터로 도구 정의, `Agent` 객체 생성
-
-`main.ipynb`은 동일한 아키텍처를 노트북 형태로 재현한 것.
 
 ## Key Configuration
 
-- `.env`에 `OPENAI_API_KEY`와 `AI_BASE_URL` 설정 필요
-- `AI_BASE_URL`을 통해 커스텀 OpenAI-호환 엔드포인트 사용 (OpenAIProvider의 base_url로 전달)
-- `RunConfig`에 `tracing_disabled=True` 설정하여 tracing 인증 에러 방지
-- 에이전트 모델: `gpt-4o-mini`, 응답 언어: 한국어
+- 각 서브프로젝트의 `.env`에 API 키 설정 (루트 `.env`는 공통 설정용)
+- Python 버전은 서브프로젝트별 `.python-version`으로 관리
