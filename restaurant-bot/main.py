@@ -1,4 +1,9 @@
 import asyncio
+import os
+import sys
+
+# Streamlit Cloud는 repo root에서 실행되므로 이 파일의 디렉토리를 경로에 추가
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import streamlit as st
 from agents import InputGuardrailTripwireTriggered, Runner
