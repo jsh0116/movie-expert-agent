@@ -11,12 +11,3 @@ Given a theme, write a 5-page children's story with:
 
 Output exactly 5 pages in the structured format.
 """
-
-PAGE_ILLUSTRATOR_DESCRIPTION = "state에서 현재 페이지를 읽어 이미지를 생성하고 Artifact로 저장합니다."
-
-PAGE_ILLUSTRATOR_INSTRUCTION = """
-You are a children's book illustrator.
-
-Call the illustrate_current_page tool to generate an illustration for the current story page.
-Do not do anything else — just call the tool once.
-"""
