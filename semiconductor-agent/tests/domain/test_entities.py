@@ -139,6 +139,22 @@ class TestEvaluationResult:
         )
         assert ev.specialist_commentary == ""
 
+    def test_follow_up_question_field_exists(self):
+        # 평가 후 약점을 파고드는 후속 질문(real interviewer probing)
+        ev = EvaluationResult(
+            accuracy_score=20, depth_score=10, terminology_score=10,
+            total_score=40, feedback="x", strong_points=[], weak_points=[],
+            question="q", follow_up_question="그럼 GAA로 넘어가는 이유는?",
+        )
+        assert ev.follow_up_question.startswith("그럼 GAA")
+
+    def test_follow_up_question_defaults_to_empty(self):
+        ev = EvaluationResult(
+            accuracy_score=20, depth_score=10, terminology_score=10,
+            total_score=40, feedback="x", strong_points=[], weak_points=[], question="q"
+        )
+        assert ev.follow_up_question == ""
+
 
 class TestDiagnosticResult:
     def test_valid_diagnostic(self):

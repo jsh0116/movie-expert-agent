@@ -46,6 +46,7 @@ class _EvalSchema(BaseModel):
     weak_points: list[str]
     model_answer: str  # 만점 기준 모범답안 (3~5문장)
     specialist_commentary: str  # 도메인 전문가 관점 코멘트 (1~2문장)
+    follow_up_question: str  # 약점을 파고드는 후속 질문 1개 (없으면 빈 문자열)
 
 
 class _DiagSchema(BaseModel):
@@ -95,6 +96,9 @@ _JUDGE_SYSTEM = """{persona}
 - specialist_commentary: 본인의 전문 분야 관점에서 핵심 1~2문장 코멘트.
   ("{specialty} 전문가 관점에서…" 톤. 일반 평가관은 잡지 못하는 도메인 디테일을 콕 짚을 것.
   수식이 적절하면 LaTeX 표기 권장.)
+- follow_up_question: 답변의 약점을 파고드는 후속 질문 1개. 진짜 면접관이
+  "그럼 X는?" "왜 그렇게 동작하지?" 같이 깊이 파는 식.
+  답변이 매우 우수하면 빈 문자열 반환. 평이한 답변이면 1개 후속 질문 생성.
 
 참고 기준(key_points): {key_points}"""
 
@@ -134,6 +138,7 @@ class OpenAILLMJudge(ILLMJudge):
             question=question.question,
             model_answer=result.model_answer,
             specialist_commentary=result.specialist_commentary,
+            follow_up_question=result.follow_up_question,
         )
 
 
@@ -248,12 +253,13 @@ key_points 참고: {key_points}
 - weak_points: {weak_points}
 - model_answer: {model_answer}
 - specialist_commentary: {specialist_commentary}
+- follow_up_question: {follow_up_question}
 
 지원자 답변:
 {user_answer}
 
 위 1차 평가를 검토하고 최종 평가를 반환하세요.
-specialist_commentary는 도메인 전문가의 코멘트이므로 필요 시 미세 조정만 하고 유지하세요."""
+specialist_commentary와 follow_up_question은 도메인 전문가의 판단이므로 필요 시 미세 조정만 하고 유지하세요."""
 
 
 class OpenAIEvaluationCritic(ILLMCritic):
@@ -278,6 +284,7 @@ class OpenAIEvaluationCritic(ILLMCritic):
             weak_points=", ".join(initial_evaluation.weak_points) or "없음",
             model_answer=initial_evaluation.model_answer or "없음",
             specialist_commentary=initial_evaluation.specialist_commentary or "없음",
+            follow_up_question=initial_evaluation.follow_up_question or "없음",
             user_answer=user_answer,
         )
         result: _EvalSchema = self._llm.invoke([{"role": "system", "content": prompt}])
@@ -293,6 +300,7 @@ class OpenAIEvaluationCritic(ILLMCritic):
             question=question.question,
             model_answer=result.model_answer,
             specialist_commentary=result.specialist_commentary,
+            follow_up_question=result.follow_up_question,
         )
 
 

@@ -23,13 +23,18 @@ def _phase2_state(question: str = "FinFET 설명하세요") -> dict:
     return s
 
 
-def _make_eval(model_answer: str = "", specialist_commentary: str = "") -> EvaluationResult:
+def _make_eval(
+    model_answer: str = "",
+    specialist_commentary: str = "",
+    follow_up_question: str = "",
+) -> EvaluationResult:
     return EvaluationResult(
         accuracy_score=30, depth_score=20, terminology_score=20,
         total_score=70, feedback="좋은 답변", strong_points=["정의"],
         weak_points=["깊이"], question="FinFET 설명하세요",
         model_answer=model_answer,
         specialist_commentary=specialist_commentary,
+        follow_up_question=follow_up_question,
     )
 
 
@@ -102,3 +107,24 @@ class TestMockInterviewerModelAnswer:
         self._setup_mocks(mock_svc, _make_eval(specialist_commentary=""))
         result = mock_interviewer_node(_phase2_state())
         assert "🔬 전문가 코멘트" not in result["display_output"]
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_follow_up_질문이_있으면_심화_질문_섹션_표시(self, mock_svc):
+        self._setup_mocks(mock_svc, _make_eval(
+            follow_up_question="그럼 FinFET에서 GAA로 넘어간 이유는 무엇인가요?"
+        ))
+        result = mock_interviewer_node(_phase2_state())
+        assert "💡 심화 질문" in result["display_output"]
+        assert "GAA로 넘어간 이유" in result["display_output"]
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_follow_up_빈값이면_심화_질문_섹션_생략(self, mock_svc):
+        self._setup_mocks(mock_svc, _make_eval(follow_up_question=""))
+        result = mock_interviewer_node(_phase2_state())
+        assert "💡 심화 질문" not in result["display_output"]
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_eval_dict에_follow_up_question_직렬화(self, mock_svc):
+        self._setup_mocks(mock_svc, _make_eval(follow_up_question="후속질문"))
+        result = mock_interviewer_node(_phase2_state())
+        assert result["evaluations"][0]["follow_up_question"] == "후속질문"

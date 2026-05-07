@@ -23,6 +23,7 @@ def _deserialize(evals: list[dict]) -> list[EvaluationResult]:
             question=e["question"],
             model_answer=e.get("model_answer", ""),
             specialist_commentary=e.get("specialist_commentary", ""),
+            follow_up_question=e.get("follow_up_question", ""),
         ))
     return results
 
