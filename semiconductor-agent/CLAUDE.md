@@ -59,7 +59,10 @@ START → orchestrator → [conditional]
 
 - `.env`에 `OPENAI_API_KEY` 필수
 - `AI_BASE_URL` 설정 시 커스텀 엔드포인트 사용
-- 모델: `gpt-4o-mini` (모든 LLM 노드)
+- 모델 차등화 (env var로 오버라이드 가능):
+  - `LLM_MODEL_JUDGE` (기본 `gpt-4o`, temp=0.0) — 면접 답변 평가, 결정론적
+  - `LLM_MODEL_DIAGNOSTIC` (기본 `gpt-4o`, temp=0.0) — 도메인별 진단, 결정론적
+  - `LLM_MODEL_COACH` (기본 `gpt-4o-mini`, temp=0.5) — 소크라테스 코칭, 약간의 다양성
 - LLM judge 루브릭: 정확성 40 + 깊이 30 + 전문용어 30 = 100점
 
 ## User Commands (in notebook)

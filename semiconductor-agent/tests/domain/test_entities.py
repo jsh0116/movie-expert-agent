@@ -106,6 +106,23 @@ class TestEvaluationResult:
         )
         assert ev.grade == "미흡"
 
+    def test_evaluation_carries_model_answer(self):
+        # 모범답안(LLM이 생성한 만점 답변 예시)이 평가 결과에 포함되어야 한다
+        ev = EvaluationResult(
+            accuracy_score=20, depth_score=10, terminology_score=10,
+            total_score=40, feedback="x", strong_points=[], weak_points=[],
+            question="FinFET 설명", model_answer="FinFET은 3D 구조의 트랜지스터로...",
+        )
+        assert ev.model_answer.startswith("FinFET은")
+
+    def test_model_answer_defaults_to_empty(self):
+        # 기존 호출자 호환을 위해 model_answer 미지정 시 빈 문자열이어야 한다
+        ev = EvaluationResult(
+            accuracy_score=20, depth_score=10, terminology_score=10,
+            total_score=40, feedback="x", strong_points=[], weak_points=[], question="q"
+        )
+        assert ev.model_answer == ""
+
 
 class TestDiagnosticResult:
     def test_valid_diagnostic(self):

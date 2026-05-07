@@ -48,6 +48,27 @@ class TestEvaluateAnswerUseCase:
         assert result.question == "Q1"
         assert "오류" in result.feedback
 
+    def test_model_answer_is_empty_on_fallback(self):
+        # LLM 실패 시 fallback EvaluationResult는 model_answer 빈 값
+        mock_judge: ILLMJudge = MagicMock()
+        mock_judge.evaluate.side_effect = Exception("LLM timeout")
+        q = Question(domain="소자", question="Q1", key_points=[])
+        result = EvaluateAnswerUseCase(llm_judge=mock_judge).execute(question=q, user_answer="x")
+        assert result.model_answer == ""
+
+    def test_propagates_model_answer_from_judge(self):
+        # judge가 반환한 model_answer가 그대로 전달되어야 함
+        mock_judge: ILLMJudge = MagicMock()
+        expected = EvaluationResult(
+            accuracy_score=30, depth_score=20, terminology_score=20,
+            total_score=70, feedback="x", strong_points=[], weak_points=[],
+            question="Q1", model_answer="FinFET은 3D 트랜지스터로 게이트가 채널을 3면에서 둘러싸...",
+        )
+        mock_judge.evaluate.return_value = expected
+        q = Question(domain="소자", question="Q1", key_points=[])
+        result = EvaluateAnswerUseCase(llm_judge=mock_judge).execute(question=q, user_answer="x")
+        assert result.model_answer.startswith("FinFET은 3D")
+
 
 class TestGetNextQuestionUseCase:
     def test_returns_first_question_on_empty_history(self):

@@ -70,6 +70,7 @@ def mock_interviewer_node(state: InterviewState) -> dict:
         "feedback": result.feedback,
         "strong_points": result.strong_points,
         "weak_points": result.weak_points,
+        "model_answer": result.model_answer,
     }
 
     new_asked = state["asked_count"] + 1
@@ -82,6 +83,9 @@ def mock_interviewer_node(state: InterviewState) -> dict:
         f"✅ 잘한 점: {', '.join(result.strong_points) or '없음'}\n"
         f"📌 보완점:  {', '.join(result.weak_points) or '없음'}\n"
     )
+
+    if result.model_answer:
+        output += f"\n📚 모범답안:\n{result.model_answer}\n"
 
     if remaining > 0:
         output += f"\n남은 문제: {remaining}개 | 계속하려면 답변을 입력하세요."
