@@ -74,18 +74,27 @@ def mock_interviewer_node(state: InterviewState) -> dict:
         "strong_points": result.strong_points,
         "weak_points": result.weak_points,
         "model_answer": result.model_answer,
+        "specialist_commentary": result.specialist_commentary,
     }
 
     new_asked = state["asked_count"] + 1
     remaining = state["max_questions"] - new_asked
 
+    domain_label = state.get("current_question_domain") or ""
+    header = f"📊 평가 결과 [{result.grade}] {result.total_score}/100점"
+    if domain_label:
+        header = f"🎓 [{domain_label} 전문가 평가] " + header
+
     output = (
-        f"📊 평가 결과 [{result.grade}] {result.total_score}/100점\n\n"
+        f"{header}\n\n"
         f"  정확성 {result.accuracy_score}/40 | 깊이 {result.depth_score}/30 | 전문용어 {result.terminology_score}/30\n\n"
         f"💬 {result.feedback}\n\n"
         f"✅ 잘한 점: {', '.join(result.strong_points) or '없음'}\n"
         f"📌 보완점:  {', '.join(result.weak_points) or '없음'}\n"
     )
+
+    if result.specialist_commentary:
+        output += f"\n🔬 전문가 코멘트:\n{result.specialist_commentary}\n"
 
     if result.model_answer:
         output += f"\n📚 모범답안:\n{result.model_answer}\n"

@@ -22,6 +22,7 @@ def _deserialize(evals: list[dict]) -> list[EvaluationResult]:
             weak_points=e.get("weak_points", []),
             question=e["question"],
             model_answer=e.get("model_answer", ""),
+            specialist_commentary=e.get("specialist_commentary", ""),
         ))
     return results
 

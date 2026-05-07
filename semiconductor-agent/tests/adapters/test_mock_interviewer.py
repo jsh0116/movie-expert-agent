@@ -23,12 +23,13 @@ def _phase2_state(question: str = "FinFET 설명하세요") -> dict:
     return s
 
 
-def _make_eval(model_answer: str = "") -> EvaluationResult:
+def _make_eval(model_answer: str = "", specialist_commentary: str = "") -> EvaluationResult:
     return EvaluationResult(
         accuracy_score=30, depth_score=20, terminology_score=20,
         total_score=70, feedback="좋은 답변", strong_points=["정의"],
         weak_points=["깊이"], question="FinFET 설명하세요",
         model_answer=model_answer,
+        specialist_commentary=specialist_commentary,
     )
 
 
@@ -79,3 +80,25 @@ class TestMockInterviewerModelAnswer:
         mock_interviewer_node(_phase2_state())
 
         mock_critic.critique.assert_called_once()
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_도메인_전문가_평가_헤더가_출력에_포함된다(self, mock_svc):
+        # 질문 도메인이 "소자"면 출력 헤더에 "[소자 전문가 평가]"가 들어가야 함
+        self._setup_mocks(mock_svc, _make_eval(specialist_commentary="x"))
+        result = mock_interviewer_node(_phase2_state())
+        assert "[소자 전문가 평가]" in result["display_output"]
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_specialist_commentary가_있으면_전문가_코멘트_섹션_출력(self, mock_svc):
+        self._setup_mocks(mock_svc, _make_eval(
+            specialist_commentary="소자 전문가 관점에서 게이트 산화막을 더 명확히 설명하면 좋겠습니다."
+        ))
+        result = mock_interviewer_node(_phase2_state())
+        assert "🔬 전문가 코멘트" in result["display_output"]
+        assert "게이트 산화막" in result["display_output"]
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_specialist_commentary_빈값이면_섹션_생략(self, mock_svc):
+        self._setup_mocks(mock_svc, _make_eval(specialist_commentary=""))
+        result = mock_interviewer_node(_phase2_state())
+        assert "🔬 전문가 코멘트" not in result["display_output"]

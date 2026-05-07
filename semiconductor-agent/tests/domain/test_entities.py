@@ -123,6 +123,22 @@ class TestEvaluationResult:
         )
         assert ev.model_answer == ""
 
+    def test_specialist_commentary_field_exists(self):
+        # 도메인 전문가 코멘트(예: "소자 전문가 관점에서…")가 평가에 포함된다
+        ev = EvaluationResult(
+            accuracy_score=20, depth_score=10, terminology_score=10,
+            total_score=40, feedback="x", strong_points=[], weak_points=[],
+            question="q", specialist_commentary="소자 전문가 관점에서 게이트 산화막 두께를 더 명확히 언급하면 좋겠습니다.",
+        )
+        assert "소자 전문가" in ev.specialist_commentary
+
+    def test_specialist_commentary_defaults_to_empty(self):
+        ev = EvaluationResult(
+            accuracy_score=20, depth_score=10, terminology_score=10,
+            total_score=40, feedback="x", strong_points=[], weak_points=[], question="q"
+        )
+        assert ev.specialist_commentary == ""
+
 
 class TestDiagnosticResult:
     def test_valid_diagnostic(self):

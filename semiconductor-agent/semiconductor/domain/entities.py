@@ -41,6 +41,7 @@ class EvaluationResult:
         weak_points: list[str],
         question: str,
         model_answer: str = "",
+        specialist_commentary: str = "",
     ) -> None:
         if not (0 <= accuracy_score <= 40):
             raise ValueError(f"accuracy_score는 0–40 범위여야 합니다. 받은 값: {accuracy_score}")
@@ -62,6 +63,7 @@ class EvaluationResult:
         self.weak_points = list(weak_points)
         self.question = question
         self.model_answer = model_answer
+        self.specialist_commentary = specialist_commentary
 
     @property
     def grade(self) -> str:
