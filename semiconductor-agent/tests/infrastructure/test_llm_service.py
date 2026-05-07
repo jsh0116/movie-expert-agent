@@ -89,6 +89,23 @@ class TestEnvVarOverride:
         assert llm_service._MODEL_CRITIC == "gpt-5"
 
 
+class TestPromptContent:
+    def test_judge_프롬프트가_LaTeX_사용을_지시한다(self):
+        # 수식이 핵심인 답변(MOSFET Vth 등)에 LaTeX 표기 사용 지시 포함
+        assert "LaTeX" in llm_service._JUDGE_SYSTEM
+        assert "$" in llm_service._JUDGE_SYSTEM  # 인라인 또는 블록 수식 예시
+
+    def test_judge_프롬프트에_4도메인_specialty_persona가_정의된다(self):
+        # 4개 도메인 모두 specialist persona 매핑 존재
+        for domain in ("소자", "공정", "회로", "트렌드"):
+            assert domain in llm_service._SPECIALIST_PERSONAS
+
+    def test_unknown_도메인은_default_persona로_fallback(self):
+        # 도메인이 비표준이면 일반 평가관 페르소나 반환
+        persona = llm_service._persona_for("알수없음")
+        assert "평가관" in persona
+
+
 class TestAIBaseURLOverride:
     def test_AI_BASE_URL_설정시_base_url_전달(self, mock_chat_openai, monkeypatch):
         monkeypatch.setenv("AI_BASE_URL", "https://custom.example.com/v1")
