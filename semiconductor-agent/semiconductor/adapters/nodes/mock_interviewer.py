@@ -14,7 +14,10 @@ from semiconductor.infrastructure.question_bank import InMemoryQuestionRepositor
 def mock_interviewer_node(state: InterviewState) -> dict:
     repo = InMemoryQuestionRepository()
     next_q_uc = GetNextQuestionUseCase(repo)
-    eval_uc = EvaluateAnswerUseCase(LangChainLLMService.judge())
+    eval_uc = EvaluateAnswerUseCase(
+        llm_judge=LangChainLLMService.judge(),
+        llm_critic=LangChainLLMService.critic(),  # Self-Critique 검증 활성화
+    )
 
     current_q_text = state.get("current_question_text")
 

@@ -33,37 +33,49 @@ def _make_eval(model_answer: str = "") -> EvaluationResult:
 
 
 class TestMockInterviewerModelAnswer:
+    def _setup_mocks(self, mock_svc, evaluation):
+        """judge는 평가 반환, critic은 그대로 통과시킴."""
+        mock_judge = MagicMock()
+        mock_judge.evaluate.return_value = evaluation
+        mock_svc.judge.return_value = mock_judge
+        mock_critic = MagicMock()
+        mock_critic.critique.side_effect = lambda question, user_answer, initial_evaluation: initial_evaluation
+        mock_svc.critic.return_value = mock_critic
+
     @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
     def test_평가_결과에_모범답안이_있으면_출력에_포함된다(self, mock_svc):
-        mock_judge = MagicMock()
-        mock_judge.evaluate.return_value = _make_eval(
+        self._setup_mocks(mock_svc, _make_eval(
             model_answer="FinFET은 3D 구조의 트랜지스터로, 게이트가 채널을 3면에서 둘러싸 단채널 효과를 억제합니다."
-        )
-        mock_svc.judge.return_value = mock_judge
-
+        ))
         result = mock_interviewer_node(_phase2_state())
-
         assert "📚 모범답안" in result["display_output"]
         assert "FinFET은 3D" in result["display_output"]
 
     @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
     def test_모범답안이_빈_문자열이면_섹션이_생략된다(self, mock_svc):
-        mock_judge = MagicMock()
-        mock_judge.evaluate.return_value = _make_eval(model_answer="")
-        mock_svc.judge.return_value = mock_judge
-
+        self._setup_mocks(mock_svc, _make_eval(model_answer=""))
         result = mock_interviewer_node(_phase2_state())
-
         assert "📚 모범답안" not in result["display_output"]
 
     @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
     def test_eval_dict에_model_answer가_직렬화된다(self, mock_svc):
-        mock_judge = MagicMock()
-        mock_judge.evaluate.return_value = _make_eval(model_answer="모범답안 텍스트")
-        mock_svc.judge.return_value = mock_judge
-
+        self._setup_mocks(mock_svc, _make_eval(model_answer="모범답안 텍스트"))
         result = mock_interviewer_node(_phase2_state())
-
         evals = result["evaluations"]
         assert len(evals) == 1
         assert evals[0]["model_answer"] == "모범답안 텍스트"
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_critic이_호출된다_self_critique_레이어_검증(self, mock_svc):
+        # mock_interviewer 노드는 평가 후 반드시 critic.critique을 호출해야 함
+        eval_result = _make_eval(model_answer="x")
+        mock_judge = MagicMock()
+        mock_judge.evaluate.return_value = eval_result
+        mock_svc.judge.return_value = mock_judge
+        mock_critic = MagicMock()
+        mock_critic.critique.return_value = eval_result
+        mock_svc.critic.return_value = mock_critic
+
+        mock_interviewer_node(_phase2_state())
+
+        mock_critic.critique.assert_called_once()

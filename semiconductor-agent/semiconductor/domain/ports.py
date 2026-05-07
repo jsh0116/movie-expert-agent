@@ -34,3 +34,19 @@ class IDiagnosticLLM(ABC):
     @abstractmethod
     def analyze(self, evaluations: list[EvaluationResult]) -> DiagnosticResult:
         """Analyze interview evaluations and produce domain scores."""
+
+
+class ILLMCritic(ABC):
+    """Self-critique layer — LLM이 본인의 평가를 다시 검증·수정한다.
+
+    교수 1명의 즉답보다 깊은 분석을 위해 평가→재검증 2회 추론으로 정확도를 높인다.
+    """
+
+    @abstractmethod
+    def critique(
+        self,
+        question: Question,
+        user_answer: str,
+        initial_evaluation: EvaluationResult,
+    ) -> EvaluationResult:
+        """Review an initial evaluation and return a revised one if needed."""

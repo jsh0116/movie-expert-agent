@@ -14,7 +14,7 @@ from semiconductor.domain.entities import (
     EvaluationResult,
     Question,
 )
-from semiconductor.domain.ports import ICoachLLM, IDiagnosticLLM, ILLMJudge
+from semiconductor.domain.ports import ICoachLLM, IDiagnosticLLM, ILLMCritic, ILLMJudge
 
 load_dotenv()
 
@@ -24,6 +24,7 @@ load_dotenv()
 _MODEL_JUDGE = os.getenv("LLM_MODEL_JUDGE", "gpt-4o")
 _MODEL_DIAGNOSTIC = os.getenv("LLM_MODEL_DIAGNOSTIC", "gpt-4o")
 _MODEL_COACH = os.getenv("LLM_MODEL_COACH", "gpt-4o-mini")
+_MODEL_CRITIC = os.getenv("LLM_MODEL_CRITIC", "gpt-4o")
 
 
 def _make_llm(model: str, temperature: float = 0.3) -> ChatOpenAI:
@@ -181,6 +182,79 @@ class OpenAIDiagnosticLLM(IDiagnosticLLM):
         )
 
 
+# ── ILLMCritic — Self-Critique 검증 레이어 ─────────────────────────
+
+_CRITIC_SYSTEM = """당신은 반도체 기술면접 평가 검증관입니다.
+다른 평가관이 작성한 1차 평가를 검토하고 정확성을 검증하세요.
+
+검토 관점:
+1. 점수가 답변의 실제 깊이와 일치하는가? (과대/과소 평가 식별)
+2. feedback이 점수와 일관되는가?
+3. 핵심 개념(key_points) 반영도가 정확하게 평가됐는가?
+4. strong_points / weak_points가 답변에서 실제로 관찰되는가?
+5. model_answer가 만점 수준으로 충분한가?
+
+원칙:
+- 1차 평가가 합리적이면 거의 동일한 결과 반환 (점수 ±5점 이내)
+- 명백한 과대/과소만 수정. 보수적으로.
+- 수정 시 feedback에 "[검증] " 접두어를 붙여 검증 흔적 남김.
+
+질문: {question}
+key_points 참고: {key_points}
+
+1차 평가 결과:
+- accuracy_score: {accuracy_score}/40
+- depth_score: {depth_score}/30
+- terminology_score: {terminology_score}/30
+- feedback: {feedback}
+- strong_points: {strong_points}
+- weak_points: {weak_points}
+- model_answer: {model_answer}
+
+지원자 답변:
+{user_answer}
+
+위 1차 평가를 검토하고 최종 평가를 반환하세요."""
+
+
+class OpenAIEvaluationCritic(ILLMCritic):
+    def __init__(self) -> None:
+        # 검증도 결정론적이어야 함
+        self._llm = _make_llm(_MODEL_CRITIC, temperature=0.0).with_structured_output(_EvalSchema)
+
+    def critique(
+        self,
+        question: Question,
+        user_answer: str,
+        initial_evaluation: EvaluationResult,
+    ) -> EvaluationResult:
+        prompt = _CRITIC_SYSTEM.format(
+            question=question.question,
+            key_points=", ".join(question.key_points) or "없음",
+            accuracy_score=initial_evaluation.accuracy_score,
+            depth_score=initial_evaluation.depth_score,
+            terminology_score=initial_evaluation.terminology_score,
+            feedback=initial_evaluation.feedback,
+            strong_points=", ".join(initial_evaluation.strong_points) or "없음",
+            weak_points=", ".join(initial_evaluation.weak_points) or "없음",
+            model_answer=initial_evaluation.model_answer or "없음",
+            user_answer=user_answer,
+        )
+        result: _EvalSchema = self._llm.invoke([{"role": "system", "content": prompt}])
+        total = result.accuracy_score + result.depth_score + result.terminology_score
+        return EvaluationResult(
+            accuracy_score=result.accuracy_score,
+            depth_score=result.depth_score,
+            terminology_score=result.terminology_score,
+            total_score=total,
+            feedback=result.feedback,
+            strong_points=result.strong_points,
+            weak_points=result.weak_points,
+            question=question.question,
+            model_answer=result.model_answer,
+        )
+
+
 # ── Composite service for convenience ────────────────────────────
 
 class LangChainLLMService:
@@ -193,6 +267,10 @@ class LangChainLLMService:
     @staticmethod
     def coach() -> ICoachLLM:
         return OpenAICoachLLM()
+
+    @staticmethod
+    def critic() -> ILLMCritic:
+        return OpenAIEvaluationCritic()
 
     @staticmethod
     def diagnostic() -> IDiagnosticLLM:

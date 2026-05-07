@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from semiconductor.domain.entities import DiagnosticResult, EvaluationResult, Question
-from semiconductor.domain.ports import ICoachLLM, IDiagnosticLLM, ILLMJudge, IQuestionRepository
+from semiconductor.domain.ports import ICoachLLM, IDiagnosticLLM, ILLMCritic, ILLMJudge, IQuestionRepository
 from semiconductor.application.use_cases.evaluate_answer import EvaluateAnswerUseCase
 from semiconductor.application.use_cases.next_question import GetNextQuestionUseCase
 from semiconductor.application.use_cases.coach_concept import CoachConceptUseCase
@@ -55,6 +55,48 @@ class TestEvaluateAnswerUseCase:
         q = Question(domain="소자", question="Q1", key_points=[])
         result = EvaluateAnswerUseCase(llm_judge=mock_judge).execute(question=q, user_answer="x")
         assert result.model_answer == ""
+
+    def test_critic_없으면_judge_결과를_그대로_반환_backward_compat(self):
+        # critic 인자 없으면 기존 동작과 동일해야 함 (기존 호출자 비파괴)
+        mock_judge: ILLMJudge = MagicMock()
+        expected = _make_eval(70, "Q1")
+        mock_judge.evaluate.return_value = expected
+
+        q = Question(domain="소자", question="Q1", key_points=[])
+        use_case = EvaluateAnswerUseCase(llm_judge=mock_judge)
+        result = use_case.execute(question=q, user_answer="ans")
+        assert result == expected
+
+    def test_critic_있으면_judge_평가_후_critic이_검증한다(self):
+        # judge → critic 순서로 실행, critic이 수정한 평가가 최종 결과
+        mock_judge: ILLMJudge = MagicMock()
+        mock_critic: ILLMCritic = MagicMock()
+        initial = _make_eval(70, "Q1")
+        revised = _make_eval(60, "Q1")  # critic이 점수를 낮춤
+        mock_judge.evaluate.return_value = initial
+        mock_critic.critique.return_value = revised
+
+        q = Question(domain="소자", question="Q1", key_points=[])
+        use_case = EvaluateAnswerUseCase(llm_judge=mock_judge, llm_critic=mock_critic)
+        result = use_case.execute(question=q, user_answer="ans")
+
+        mock_critic.critique.assert_called_once_with(
+            question=q, user_answer="ans", initial_evaluation=initial
+        )
+        assert result == revised
+
+    def test_critic_실패시_원본_judge_결과로_fallback(self):
+        # critic이 예외를 던져도 원본 평가가 사라지면 안 됨 (graceful degradation)
+        mock_judge: ILLMJudge = MagicMock()
+        mock_critic: ILLMCritic = MagicMock()
+        initial = _make_eval(70, "Q1")
+        mock_judge.evaluate.return_value = initial
+        mock_critic.critique.side_effect = Exception("critic timeout")
+
+        q = Question(domain="소자", question="Q1", key_points=[])
+        use_case = EvaluateAnswerUseCase(llm_judge=mock_judge, llm_critic=mock_critic)
+        result = use_case.execute(question=q, user_answer="ans")
+        assert result == initial
 
     def test_propagates_model_answer_from_judge(self):
         # judge가 반환한 model_answer가 그대로 전달되어야 함
