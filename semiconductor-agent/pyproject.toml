@@ -18,6 +18,7 @@ dependencies = [
     "ddgs>=9.14.2",
     "langchain>=1.2.18",
     "langchain-anthropic>=1.4.3",
+    "langchain-google-genai>=4.2.2",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -9,7 +9,7 @@ Clean Architecture (4-layer) + TDD (pytest) 로 구현됨.
 
 ```bash
 uv sync --dev                          # 의존성 + pytest 설치
-uv run pytest tests/ -v                # 전체 테스트 실행 (190개)
+uv run pytest tests/ -v                # 전체 테스트 실행 (201개)
 uv run jupyter notebook main.ipynb     # 데모 노트북 실행
 uv run chainlit run chainlit_app.py    # Chainlit 웹 UI
 ```
@@ -67,7 +67,12 @@ START → orchestrator
 ```
 
 **평가 파이프라인 ("교수 초과")**: Specialty Judge → (선택적 ∥ web_search) → Critic → 출력 6개 섹션
-**ReAct 도구 4개**: `industry_trend_search`, `calculate_threshold_voltage`, `calculate_drain_current`, `calculate_oxide_capacitance`
+**ReAct 도구 7개** (qa_coach가 LLM-driven 호출):
+- `industry_trend_search` (DuckDuckGo, today 날짜 자동 주입)
+- `calculate_threshold_voltage` / `calculate_drain_current` / `calculate_oxide_capacitance` (반도체 수식 계산)
+- `analyze_circuit_diagram` / `analyze_band_diagram` / `analyze_engineering_image` (Gemini 멀티모달)
+  - `LLM_MODEL_VISION` env (기본 `google_genai:gemini-2.5-pro`)
+  - 회로도, 밴드 다이어그램, SEM/레이아웃 이미지 입력 → 텍스트 분석
 **Memory**: `create_app_with_memory()` → MemorySaver. `config={"configurable":{"thread_id":"user_xxx"}}` 로 invoke 시 자동 영속화
 **Parallel Send**: 트렌드 도메인 평가 시 judge LLM과 DuckDuckGo 검색이 동시 실행 (today 날짜 자동 주입으로 stale article 방지)
 
@@ -83,7 +88,7 @@ START → orchestrator
   - 명시 env var (`LLM_MODEL_{ROLE}`)이 tier보다 우선
   - provider prefix 없으면 `openai:` 자동 보완 (예: `gpt-5` → `openai:gpt-5`)
   - `AI_BASE_URL`은 OpenAI provider일 때만 적용
-  - 필요한 API 키: `OPENAI_API_KEY` + `ANTHROPIC_API_KEY`
+  - 필요한 API 키: `OPENAI_API_KEY` + `ANTHROPIC_API_KEY` + `GOOGLE_API_KEY` (vision 사용 시)
 - Adaptive critic skip — 평가 비용 절감
   - mock_critic은 1차 평가 점수가 회색지대(31~84)일 때만 호출
   - 확신 영역(>=85 우수, <=30 미흡)은 LLM critic 생략 → 평균 -50% 비용

@@ -7,12 +7,14 @@ from __future__ import annotations
 from langchain_core.tools import tool
 
 from semiconductor.infrastructure.tools.calculator import SemiconductorCalculator
+from semiconductor.infrastructure.tools.vision import GeminiVisionAnalyzer
 from semiconductor.infrastructure.tools.web_search import IndustrySearchService
 
-# Lazy singleton — module-import 시점에는 외부 의존(DDG) 초기화 회피.
+# Lazy singleton — module-import 시점에는 외부 의존(DDG, Gemini) 초기화 회피.
 # 첫 tool 호출 시점에 생성됨. 테스트는 patch로 주입.
 _calc: SemiconductorCalculator | None = None
 _search: IndustrySearchService | None = None
+_vision: GeminiVisionAnalyzer | None = None
 
 
 def _get_calc() -> SemiconductorCalculator:
@@ -27,6 +29,13 @@ def _get_search() -> IndustrySearchService:
     if _search is None:
         _search = IndustrySearchService()
     return _search
+
+
+def _get_vision() -> GeminiVisionAnalyzer:
+    global _vision
+    if _vision is None:
+        _vision = GeminiVisionAnalyzer()
+    return _vision
 
 
 @tool
@@ -110,10 +119,69 @@ def calculate_oxide_capacitance(tox_nm: float) -> str:
         return f"❌ 입력값 오류: {e}"
 
 
-# qa_coach에 바인딩할 모든 tool
+@tool
+def analyze_circuit_diagram(image_path: str) -> str:
+    """회로도 이미지를 분석합니다 (예: 센스앰프, 차지펌프, 메모리 컨트롤러).
+
+    Gemini 멀티모달이 트랜지스터 종류, 결선, 동작 원리를 텍스트로 풀어 설명합니다.
+
+    Args:
+        image_path: 로컬 회로도 파일 경로 (.png/.jpg/.webp)
+    """
+    prompt = (
+        "당신은 반도체 회로 설계 전문가입니다. 이 회로도를 분석하세요:\n"
+        "1. 회로 종류 (예: 센스앰프, 차지펌프 등)\n"
+        "2. 사용된 트랜지스터·소자\n"
+        "3. 신호 흐름과 동작 원리\n"
+        "4. 핵심 설계 포인트\n"
+        "한국어로 답변하세요."
+    )
+    return _get_vision().analyze(image_path, prompt)
+
+
+@tool
+def analyze_band_diagram(image_path: str) -> str:
+    """에너지 밴드 다이어그램을 분석합니다 (MOSFET, p-n 접합, 헤테로 접합 등).
+
+    Gemini가 페르미 준위, 공핍층, 캐리어 흐름 등을 설명합니다.
+
+    Args:
+        image_path: 밴드 다이어그램 이미지 경로
+    """
+    prompt = (
+        "당신은 반도체 소자물리 전문가입니다. 이 에너지 밴드 다이어그램을 분석하세요:\n"
+        "1. 어떤 소자/구조의 밴드 다이어그램인가\n"
+        "2. EC, EV, EF (페르미 준위) 위치\n"
+        "3. 공핍층·축적층 등 핵심 영역\n"
+        "4. 캐리어 흐름과 동작 메커니즘\n"
+        "한국어로 답변하세요."
+    )
+    return _get_vision().analyze(image_path, prompt)
+
+
+@tool
+def analyze_engineering_image(image_path: str, query: str) -> str:
+    """일반 반도체 공학 이미지(레이아웃, SEM, 공정 단면도 등)를 분석합니다.
+
+    Args:
+        image_path: 이미지 파일 경로
+        query: 구체적 질문 (예: "이 SEM 사진의 결함 종류는?")
+    """
+    prompt = (
+        f"당신은 반도체 공학 박사 수준의 전문가입니다. 이 이미지를 분석하고 질문에 답하세요.\n"
+        f"질문: {query}\n"
+        "한국어로 핵심을 짚어 답변하세요."
+    )
+    return _get_vision().analyze(image_path, prompt)
+
+
+# qa_coach에 바인딩할 모든 tool — 검색·계산·비전
 COACH_TOOLS = [
     industry_trend_search,
     calculate_threshold_voltage,
     calculate_drain_current,
     calculate_oxide_capacitance,
+    analyze_circuit_diagram,
+    analyze_band_diagram,
+    analyze_engineering_image,
 ]
