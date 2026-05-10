@@ -15,6 +15,7 @@ class InterviewState(TypedDict):
 
     # ── Workflow control ──────────────────────────────────────────
     mode: str  # "idle" | "interview" | "qa" | "diagnostic"
+    interview_phase: str  # "present" | "evaluate" — 면접 내 단계 (mode=interview일 때만 의미)
 
     # ── Mock Interviewer tracking ─────────────────────────────────
     asked_count: int
@@ -22,6 +23,7 @@ class InterviewState(TypedDict):
     current_question_domain: Optional[str]
     current_question_key_points: list[str]
     evaluations: list[dict]  # serialized EvaluationResult dicts
+    pending_evaluation: Optional[dict]  # judge 결과, critic이 받아 검증 (turn 내에서만 유효)
 
     # ── Q&A Coach tracking ────────────────────────────────────────
     hint_count: int
@@ -47,11 +49,13 @@ def create_initial_state(
         domain=domain,
         max_questions=max_questions,
         mode="idle",
+        interview_phase="present",
         asked_count=0,
         current_question_text=None,
         current_question_domain=None,
         current_question_key_points=[],
         evaluations=[],
+        pending_evaluation=None,
         hint_count=0,
         current_qa_topic="",
         messages=[],

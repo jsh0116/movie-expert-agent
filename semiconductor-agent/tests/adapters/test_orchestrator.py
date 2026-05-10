@@ -26,11 +26,13 @@ class TestOrchestratorNode:
         result = orchestrator_node(state)
         # then
         assert result["mode"] == "interview"
+        assert result["interview_phase"] == "present"  # 새 면접 시작 시 phase는 present
 
     def test_영문_interview_명령어도_동작(self):
         state = _state_with_msg("/interview")
         result = orchestrator_node(state)
         assert result["mode"] == "interview"
+        assert result["interview_phase"] == "present"
 
     def test_qa_명령어로_코칭_모드_전환(self):
         # given: idle 상태에서 /qa 입력
@@ -105,10 +107,17 @@ class TestOrchestratorNode:
 
 
 class TestRouteFromOrchestrator:
-    def test_interview_모드는_mock_interviewer로_라우팅(self):
+    def test_interview_present_phase는_mock_present로_라우팅(self):
         s = dict(create_initial_state())
         s["mode"] = "interview"
-        assert route_from_orchestrator(s) == "mock_interviewer"
+        s["interview_phase"] = "present"
+        assert route_from_orchestrator(s) == "mock_present"
+
+    def test_interview_evaluate_phase는_mock_evaluate로_라우팅(self):
+        s = dict(create_initial_state())
+        s["mode"] = "interview"
+        s["interview_phase"] = "evaluate"
+        assert route_from_orchestrator(s) == "mock_evaluate"
 
     def test_qa_모드는_qa_coach로_라우팅(self):
         s = dict(create_initial_state())
