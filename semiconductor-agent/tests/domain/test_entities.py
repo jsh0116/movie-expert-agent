@@ -1,6 +1,8 @@
 """TDD: Domain entity invariants — write tests FIRST, then implement."""
 import pytest
 from semiconductor.domain.entities import (
+    BehavioralEvaluation,
+    BehavioralQuestion,
     DiagnosticResult,
     EssayEvaluation,
     EssayPrompt,
@@ -252,3 +254,50 @@ class TestEssayEvaluation:
                 total_score=total, feedback="x", strong_points=[], weak_points=[],
             )
             assert ev.grade == expected_grade
+
+
+class TestBehavioralQuestion:
+    def test_정상_생성(self):
+        q = BehavioralQuestion(
+            company="samsung_ds",
+            question="팀 갈등 극복 경험을 STAR로 답해주세요",
+            competency="갈등극복",
+        )
+        assert q.competency == "갈등극복"
+
+    def test_잘못된_competency_거부(self):
+        with pytest.raises(ValueError):
+            BehavioralQuestion(
+                company="samsung_ds", question="x", competency="이상한역량",
+            )
+
+    def test_빈_question_거부(self):
+        with pytest.raises(ValueError):
+            BehavioralQuestion(company="samsung_ds", question="  ", competency="리더십")
+
+
+class TestBehavioralEvaluation:
+    def test_정상_평가_총점_검증(self):
+        ev = BehavioralEvaluation(
+            situation_score=15, task_score=15, action_score=25,
+            result_score=15, culture_fit=8, total_score=78,
+            feedback="좋습니다", strong_points=["구체적"], weak_points=["수치 부족"],
+            improved_answer="STAR로 다시 쓰면...",
+        )
+        assert ev.grade == "보통"
+
+    def test_action_score_30_초과_거부(self):
+        with pytest.raises(ValueError, match="action_score"):
+            BehavioralEvaluation(
+                situation_score=10, task_score=10, action_score=35,  # max 30
+                result_score=10, culture_fit=5, total_score=70,
+                feedback="x", strong_points=[], weak_points=[],
+            )
+
+    def test_total_불일치_거부(self):
+        with pytest.raises(ValueError, match="total_score"):
+            BehavioralEvaluation(
+                situation_score=10, task_score=10, action_score=20,
+                result_score=10, culture_fit=5, total_score=99,  # actual = 55
+                feedback="x", strong_points=[], weak_points=[],
+            )

@@ -10,6 +10,7 @@ _INTERVIEW_TRIGGERS = {"/인터뷰", "/interview"}
 _QA_TRIGGERS = {"/qa", "/코칭"}
 _DIAGNOSTIC_TRIGGERS = {"/진단", "/diagnostic"}
 _ESSAY_TRIGGERS = {"/자소서", "/essay"}
+_BEHAVIORAL_TRIGGERS = {"/인성", "/behavioral"}
 
 
 def orchestrator_node(state: InterviewState) -> dict:
@@ -60,6 +61,17 @@ def orchestrator_node(state: InterviewState) -> dict:
                 updates["essay_item"] = None
             return updates
 
+    for cmd in _BEHAVIORAL_TRIGGERS:
+        if lower.startswith(cmd):
+            # /인성 [회사] — 회사 미지정 시 samsung_ds 기본
+            args = text[len(cmd):].strip().split()
+            company = args[0] if args else "samsung_ds"
+            return {
+                "mode": "behavioral",
+                "behavioral_phase": "present",
+                "behavioral_company": company,
+            }
+
     return {}
 
 
@@ -73,6 +85,9 @@ def route_from_orchestrator(state: InterviewState) -> str:
         # phase 기반: present(prompt 표시) vs evaluate(자소서 평가)
         phase = state.get("essay_phase", "present")
         return "essay_present" if phase == "present" else "essay_evaluate"
+    if mode == "behavioral":
+        phase = state.get("behavioral_phase", "present")
+        return "behavioral_present" if phase == "present" else "behavioral_evaluate"
     if mode == "qa":
         return "qa_coach"
     if mode == "diagnostic":

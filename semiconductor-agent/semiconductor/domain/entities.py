@@ -180,3 +180,84 @@ class EssayEvaluation:
         if self.total_score >= 50:
             return "보통"
         return "미흡"
+
+
+# ── 인성면접 (Behavioral STAR) ───────────────────────────────────
+
+VALID_COMPETENCIES = frozenset(("리더십", "문제해결", "협력", "도전", "갈등극복"))
+
+
+@dataclass(frozen=True)
+class BehavioralQuestion:
+    company: str           # samsung_ds | sk_hynix
+    question: str          # "팀에서 갈등을 극복한 경험..."
+    competency: str        # 평가하려는 역량 (리더십·문제해결·협력 등)
+
+    def __post_init__(self):
+        if self.company not in VALID_ESSAY_COMPANIES:
+            raise ValueError(f"회사는 {VALID_ESSAY_COMPANIES} 중 하나여야 합니다.")
+        if self.competency not in VALID_COMPETENCIES:
+            raise ValueError(f"competency는 {VALID_COMPETENCIES} 중 하나여야 합니다.")
+        if not self.question.strip():
+            raise ValueError("질문 텍스트는 비어있을 수 없습니다.")
+
+
+class BehavioralEvaluation:
+    """STAR 기법 + 회사 인재상 평가.
+
+    Rubric (총 100점):
+      situation_score (0-20): Situation 명확도
+      task_score (0-20):      Task 명확도
+      action_score (0-30):    Action 구체성 (가장 중요)
+      result_score (0-20):    Result 정량화·임팩트
+      culture_fit (0-10):     회사 인재상·역량 매칭
+    """
+
+    def __init__(
+        self,
+        situation_score: int,
+        task_score: int,
+        action_score: int,
+        result_score: int,
+        culture_fit: int,
+        total_score: int,
+        feedback: str,
+        strong_points: list[str],
+        weak_points: list[str],
+        improved_answer: str = "",
+    ) -> None:
+        ranges = (
+            ("situation_score", situation_score, 20),
+            ("task_score", task_score, 20),
+            ("action_score", action_score, 30),
+            ("result_score", result_score, 20),
+            ("culture_fit", culture_fit, 10),
+        )
+        for name, val, max_v in ranges:
+            if not (0 <= val <= max_v):
+                raise ValueError(f"{name}는 0–{max_v} 범위여야 합니다: {val}")
+        expected = (
+            situation_score + task_score + action_score + result_score + culture_fit
+        )
+        if total_score != expected:
+            raise ValueError(
+                f"total_score({total_score})가 부분 점수의 합({expected})과 다릅니다."
+            )
+        self.situation_score = situation_score
+        self.task_score = task_score
+        self.action_score = action_score
+        self.result_score = result_score
+        self.culture_fit = culture_fit
+        self.total_score = total_score
+        self.feedback = feedback
+        self.strong_points = list(strong_points)
+        self.weak_points = list(weak_points)
+        self.improved_answer = improved_answer
+
+    @property
+    def grade(self) -> str:
+        if self.total_score >= 80:
+            return "우수"
+        if self.total_score >= 50:
+            return "보통"
+        return "미흡"
