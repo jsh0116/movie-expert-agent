@@ -24,6 +24,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.types import Send
 
 from semiconductor.adapters.nodes.diagnostic import diagnostic_node
+from semiconductor.adapters.nodes.essay_coach import essay_evaluate_node, essay_present_node
 from semiconductor.adapters.nodes.mock_interviewer import (
     mock_critic_node,
     mock_evaluate_node,
@@ -73,6 +74,8 @@ def create_app(
     builder.add_node("mock_critic", mock_critic_node)
     builder.add_node("qa_coach", qa_coach_node)
     builder.add_node("coach_tools", coach_tools_node)
+    builder.add_node("essay_present", essay_present_node)
+    builder.add_node("essay_evaluate", essay_evaluate_node)
     builder.add_node("diagnostic", diagnostic_node)
 
     builder.set_entry_point("orchestrator")
@@ -85,6 +88,8 @@ def create_app(
             "mock_present": "mock_present",
             "mock_evaluate": "eval_dispatch",  # evaluate phase는 fan-out 거침
             "qa_coach": "qa_coach",
+            "essay_present": "essay_present",
+            "essay_evaluate": "essay_evaluate",
             "diagnostic": "diagnostic",
             END: END,
         },
@@ -111,6 +116,8 @@ def create_app(
 
     # ── Single-path nodes ────────────────────────────────────────
     builder.add_edge("mock_present", END)
+    builder.add_edge("essay_present", END)
+    builder.add_edge("essay_evaluate", END)
     builder.add_edge("diagnostic", END)
 
     compile_kwargs = {}

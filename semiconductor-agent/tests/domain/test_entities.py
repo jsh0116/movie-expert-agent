@@ -1,6 +1,12 @@
 """TDD: Domain entity invariants — write tests FIRST, then implement."""
 import pytest
-from semiconductor.domain.entities import DiagnosticResult, EvaluationResult, Question
+from semiconductor.domain.entities import (
+    DiagnosticResult,
+    EssayEvaluation,
+    EssayPrompt,
+    EvaluationResult,
+    Question,
+)
 
 
 class TestQuestion:
@@ -183,3 +189,66 @@ class TestDiagnosticResult:
             recommended_next="전반적 학습 필요",
         )
         assert dr.weakest_domain in ("소자", "공정", "회로", "트렌드")
+
+
+class TestEssayPrompt:
+    def test_정상_prompt_생성(self):
+        p = EssayPrompt(
+            company="samsung_ds", item="지원동기",
+            description="삼성 DS에 지원하는 이유와 본인의 강점",
+            word_limit=1500,
+        )
+        assert p.company == "samsung_ds"
+        assert p.item == "지원동기"
+
+    def test_잘못된_회사는_거부(self):
+        with pytest.raises(ValueError):
+            EssayPrompt(company="lg_display", item="지원동기", description="x", word_limit=1500)
+
+    def test_잘못된_항목은_거부(self):
+        with pytest.raises(ValueError):
+            EssayPrompt(company="samsung_ds", item="이상한항목", description="x", word_limit=1500)
+
+    def test_word_limit_0이하는_거부(self):
+        with pytest.raises(ValueError):
+            EssayPrompt(company="samsung_ds", item="지원동기", description="x", word_limit=0)
+
+
+class TestEssayEvaluation:
+    def test_정상_평가(self):
+        ev = EssayEvaluation(
+            fit_score=25, structure_score=20, specificity_score=20, writing_score=15,
+            total_score=80, feedback="좋습니다", strong_points=["구체적"],
+            weak_points=["서론 약함"], revised_excerpt="서론 예시...",
+            culture_alignment="삼성 인재상 '도전' 일치",
+        )
+        assert ev.total_score == 80
+        assert ev.grade == "우수"
+
+    def test_total_score_합계_불일치_거부(self):
+        with pytest.raises(ValueError, match="total_score"):
+            EssayEvaluation(
+                fit_score=20, structure_score=20, specificity_score=20, writing_score=10,
+                total_score=99,  # actual sum = 70
+                feedback="x", strong_points=[], weak_points=[],
+            )
+
+    def test_fit_score_30_초과_거부(self):
+        with pytest.raises(ValueError):
+            EssayEvaluation(
+                fit_score=35, structure_score=20, specificity_score=20, writing_score=15,
+                total_score=90, feedback="x", strong_points=[], weak_points=[],
+            )
+
+    def test_grade_등급(self):
+        cases = [
+            (24, 18, 18, 15, 75, "보통"),
+            (15, 10, 10, 10, 45, "미흡"),
+            (28, 22, 22, 18, 90, "우수"),
+        ]
+        for fit, struct, spec, write, total, expected_grade in cases:
+            ev = EssayEvaluation(
+                fit_score=fit, structure_score=struct, specificity_score=spec, writing_score=write,
+                total_score=total, feedback="x", strong_points=[], weak_points=[],
+            )
+            assert ev.grade == expected_grade

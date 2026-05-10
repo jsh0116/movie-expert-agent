@@ -9,6 +9,7 @@ from semiconductor.adapters.state import InterviewState
 _INTERVIEW_TRIGGERS = {"/인터뷰", "/interview"}
 _QA_TRIGGERS = {"/qa", "/코칭"}
 _DIAGNOSTIC_TRIGGERS = {"/진단", "/diagnostic"}
+_ESSAY_TRIGGERS = {"/자소서", "/essay"}
 
 
 def orchestrator_node(state: InterviewState) -> dict:
@@ -45,6 +46,20 @@ def orchestrator_node(state: InterviewState) -> dict:
         if lower.startswith(cmd):
             return {"mode": "diagnostic"}
 
+    for cmd in _ESSAY_TRIGGERS:
+        if lower.startswith(cmd):
+            # /자소서 [회사] [항목] — args 파싱
+            args = text[len(cmd):].strip().split(maxsplit=1)
+            updates: dict = {"mode": "essay", "essay_phase": "present"}
+            if len(args) >= 2:
+                updates["essay_company"] = args[0]
+                updates["essay_item"] = args[1]
+            else:
+                # 인자 부족 — present_node가 사용 가이드 표시
+                updates["essay_company"] = None
+                updates["essay_item"] = None
+            return updates
+
     return {}
 
 
@@ -54,6 +69,10 @@ def route_from_orchestrator(state: InterviewState) -> str:
         # phase 기반 분기: present(질문 출제) vs evaluate(답변 평가)
         phase = state.get("interview_phase", "present")
         return "mock_present" if phase == "present" else "mock_evaluate"
+    if mode == "essay":
+        # phase 기반: present(prompt 표시) vs evaluate(자소서 평가)
+        phase = state.get("essay_phase", "present")
+        return "essay_present" if phase == "present" else "essay_evaluate"
     if mode == "qa":
         return "qa_coach"
     if mode == "diagnostic":
