@@ -40,12 +40,8 @@ class TestGraphCompile:
 
 
 class TestInterviewFlow:
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
-    def test_인터뷰_명령이_mock_present로_라우팅된다(self, mock_svc):
-        # judge/critic은 호출되지 않아야 함 (질문 출제 turn)
-        mock_svc.judge.return_value = MagicMock()
-        mock_svc.critic.return_value = MagicMock()
-
+    def test_인터뷰_명령이_mock_present로_라우팅된다(self):
+        # 질문 출제 turn — LLM 호출 자체가 없으므로 mock 불필요
         app, state = create_app(max_questions=5)
         state["messages"] = [HumanMessage(content="/인터뷰")]
         result = app.invoke(state)
@@ -55,15 +51,16 @@ class TestInterviewFlow:
         assert result["current_question_text"] is not None
         assert "📝" in result["display_output"]
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
-    def test_답변_turn은_evaluate_critic_2_pass_체이닝(self, mock_svc):
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.evaluate.LangChainLLMService")
+    def test_답변_turn은_evaluate_critic_2_pass_체이닝(self, mock_eval_svc, mock_critic_svc):
         mock_judge = MagicMock()
         mock_judge.evaluate.return_value = _make_eval(total=60)
-        mock_svc.judge.return_value = mock_judge
+        mock_eval_svc.judge.return_value = mock_judge
 
         mock_critic = MagicMock()
         mock_critic.critique.return_value = _make_eval(total=70)  # 점수 상향
-        mock_svc.critic.return_value = mock_critic
+        mock_critic_svc.critic.return_value = mock_critic
 
         app, state = create_app(max_questions=5)
         # 직전 turn에서 질문이 출제된 상태 시뮬레이션

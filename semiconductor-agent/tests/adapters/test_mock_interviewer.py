@@ -81,7 +81,7 @@ class TestMockPresentNode:
 
 
 class TestMockEvaluateNode:
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.evaluate.LangChainLLMService")
     def test_judge_호출_후_pending_evaluation에_저장(self, mock_svc):
         mock_judge = MagicMock()
         mock_judge.evaluate.return_value = _make_eval(model_answer="X")
@@ -93,7 +93,7 @@ class TestMockEvaluateNode:
         assert result["pending_evaluation"]["question"] == "FinFET 설명하세요"
         assert result["pending_evaluation"]["model_answer"] == "X"
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.evaluate.LangChainLLMService")
     def test_evaluate_노드는_critic을_호출하지_않는다(self, mock_svc):
         mock_judge = MagicMock()
         mock_judge.evaluate.return_value = _make_eval()
@@ -110,7 +110,7 @@ class TestMockEvaluateNode:
 
 
 class TestMockCriticNode:
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
     def test_pending_평가를_critic이_검증_후_evaluations에_저장(self, mock_svc):
         initial = _make_eval(total=60)
         revised = _make_eval(total=70)
@@ -128,7 +128,7 @@ class TestMockCriticNode:
         assert result["evaluations"][0]["total_score"] == 70  # revised 점수
         assert result["pending_evaluation"] is None  # 사용 후 정리
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
     def test_critic_후_phase는_present로_복귀_다음_질문_준비(self, mock_svc):
         mock_critic = MagicMock()
         mock_critic.critique.return_value = _make_eval()
@@ -142,7 +142,7 @@ class TestMockCriticNode:
         assert result["interview_phase"] == "present"
         assert result["current_question_text"] is None  # 다음 질문 받을 준비
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
     def test_도메인_전문가_헤더와_각_섹션_출력에_포함(self, mock_svc):
         mock_critic = MagicMock()
         mock_critic.critique.return_value = _make_eval(
@@ -162,7 +162,7 @@ class TestMockCriticNode:
         assert "📚 모범답안" in out
         assert "💡 심화 질문" in out
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
     def test_max_questions_도달시_idle로_전환(self, mock_svc):
         mock_critic = MagicMock()
         mock_critic.critique.return_value = _make_eval()
@@ -178,7 +178,7 @@ class TestMockCriticNode:
         assert result["mode"] == "idle"
         assert "모든 문제를 완료" in result["display_output"]
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
     def test_critic_실패시_초기_평가가_그대로_저장된다(self, mock_svc):
         mock_critic = MagicMock()
         mock_critic.critique.side_effect = Exception("critic timeout")
@@ -197,7 +197,7 @@ class TestMockCriticNode:
 class TestAdaptiveCriticSkip:
     """확신 영역(매우 높거나 매우 낮은 점수)에서 critic LLM 호출 생략 — 비용 50%↓."""
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
     def test_high_confidence_85_이상이면_critic_skip(self, mock_svc):
         mock_critic = MagicMock()
         mock_svc.critic.return_value = mock_critic
@@ -212,7 +212,7 @@ class TestAdaptiveCriticSkip:
         mock_critic.critique.assert_not_called()
         assert result["evaluations"][0]["total_score"] == 90
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
     def test_low_confidence_30_이하면_critic_skip(self, mock_svc):
         mock_critic = MagicMock()
         mock_svc.critic.return_value = mock_critic
@@ -226,7 +226,7 @@ class TestAdaptiveCriticSkip:
         mock_critic.critique.assert_not_called()
         assert result["evaluations"][0]["total_score"] == 20
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
     def test_회색지대_31_84점은_critic_호출(self, mock_svc):
         # 회색지대 점수는 critic 검증 필요
         mock_critic = MagicMock()
@@ -241,7 +241,7 @@ class TestAdaptiveCriticSkip:
 
         mock_critic.critique.assert_called_once()
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
     def test_LLM_DISABLE_CRITIC_SKIP_설정시_무조건_호출(self, mock_svc, monkeypatch):
         # 디버깅·일관성용 토글 — skip 비활성화하면 확신 영역에서도 critic 호출
         monkeypatch.setenv("LLM_DISABLE_CRITIC_SKIP", "1")

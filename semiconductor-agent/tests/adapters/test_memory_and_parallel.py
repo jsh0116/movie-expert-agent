@@ -32,14 +32,15 @@ class TestMemoryCheckpointer:
         # 컴파일된 앱은 checkpointer를 가짐
         assert app.checkpointer is memory
 
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
-    def test_thread_id로_state가_세션간_지속된다(self, mock_svc):
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.evaluate.LangChainLLMService")
+    def test_thread_id로_state가_세션간_지속된다(self, mock_eval_svc, mock_critic_svc):
         mock_judge = MagicMock()
         mock_judge.evaluate.return_value = _make_eval()
-        mock_svc.judge.return_value = mock_judge
+        mock_eval_svc.judge.return_value = mock_judge
         mock_critic = MagicMock()
         mock_critic.critique.return_value = _make_eval()
-        mock_svc.critic.return_value = mock_critic
+        mock_critic_svc.critic.return_value = mock_critic
 
         app, state = create_app_with_memory(max_questions=5)
         config = {"configurable": {"thread_id": "user_001"}}
@@ -62,15 +63,17 @@ class TestMemoryCheckpointer:
 
 class TestParallelSendAPI:
     @patch("semiconductor.adapters.nodes.web_enrichment.IndustrySearchService")
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
-    def test_트렌드_도메인일때_web_enrichment가_병렬_실행(self, mock_svc, mock_search_cls):
-        # given: judge + critic mock + search mock
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.evaluate.LangChainLLMService")
+    def test_트렌드_도메인일때_web_enrichment가_병렬_실행(
+        self, mock_eval_svc, mock_critic_svc, mock_search_cls,
+    ):
         mock_judge = MagicMock()
         mock_judge.evaluate.return_value = _make_eval()
-        mock_svc.judge.return_value = mock_judge
+        mock_eval_svc.judge.return_value = mock_judge
         mock_critic = MagicMock()
         mock_critic.critique.return_value = _make_eval()
-        mock_svc.critic.return_value = mock_critic
+        mock_critic_svc.critic.return_value = mock_critic
         mock_search = MagicMock()
         mock_search.search.return_value = "HBM3E 양산 발표 (2026)"
         mock_search_cls.return_value = mock_search
@@ -95,14 +98,17 @@ class TestParallelSendAPI:
         assert "🌐 산업 최신 동향" in result["display_output"]
 
     @patch("semiconductor.adapters.nodes.web_enrichment.IndustrySearchService")
-    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
-    def test_비_트렌드_도메인은_web_enrichment_호출_안함(self, mock_svc, mock_search_cls):
+    @patch("semiconductor.adapters.nodes.mock_interviewer.critic.LangChainLLMService")
+    @patch("semiconductor.adapters.nodes.mock_interviewer.evaluate.LangChainLLMService")
+    def test_비_트렌드_도메인은_web_enrichment_호출_안함(
+        self, mock_eval_svc, mock_critic_svc, mock_search_cls,
+    ):
         mock_judge = MagicMock()
         mock_judge.evaluate.return_value = _make_eval()
-        mock_svc.judge.return_value = mock_judge
+        mock_eval_svc.judge.return_value = mock_judge
         mock_critic = MagicMock()
         mock_critic.critique.return_value = _make_eval()
-        mock_svc.critic.return_value = mock_critic
+        mock_critic_svc.critic.return_value = mock_critic
         mock_search = MagicMock()
         mock_search_cls.return_value = mock_search
 

@@ -61,11 +61,11 @@ class TestBehavioralPresentNode:
 
 
 class TestBehavioralEvaluateNode:
-    @patch("semiconductor.adapters.nodes.behavioral_coach.ClaudeBehavioralCoach")
-    def test_답변_평가_후_idle_복귀(self, mock_coach_cls):
+    @patch("semiconductor.adapters.nodes.behavioral_coach.LangChainLLMService")
+    def test_답변_평가_후_idle_복귀(self, mock_svc):
         mock_coach = MagicMock()
         mock_coach.evaluate_behavioral.return_value = _make_eval()
-        mock_coach_cls.return_value = mock_coach
+        mock_svc.behavioral.return_value = mock_coach
 
         s = dict(create_initial_state())
         s["behavioral_company"] = "samsung_ds"
@@ -82,8 +82,8 @@ class TestBehavioralEvaluateNode:
         assert result["behavioral_question_text"] is None
         assert len(result["behaviorals_evaluated"]) == 1
 
-    @patch("semiconductor.adapters.nodes.behavioral_coach.ClaudeBehavioralCoach")
-    def test_빈_답변_거부(self, mock_coach_cls):
+    @patch("semiconductor.adapters.nodes.behavioral_coach.LangChainLLMService")
+    def test_빈_답변_거부(self, mock_svc):
         s = dict(create_initial_state())
         s["behavioral_company"] = "samsung_ds"
         s["behavioral_question_text"] = "x"
@@ -91,7 +91,7 @@ class TestBehavioralEvaluateNode:
         s["messages"] = [HumanMessage(content="  ")]
         result = behavioral_evaluate_node(s)
         assert "비어있습니다" in result["display_output"]
-        mock_coach_cls.assert_not_called()
+        mock_svc.behavioral.assert_not_called()
 
     def test_컨텍스트_손실_가이드_복귀(self):
         s = dict(create_initial_state())

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from semiconductor.domain.entities import EssayEvaluation, EssayPrompt
 from semiconductor.domain.ports import IEssayCoach
+from semiconductor.infrastructure.llm.safety import INJECTION_GUARD, wrap_user_input
 from semiconductor.infrastructure.llm.tiers import model_for_role
 
 
@@ -82,10 +83,10 @@ class ClaudeEssayCoach(IEssayCoach):
             item=prompt.item,
             item_description=prompt.description,
             word_limit=prompt.word_limit,
-        )
+        ) + INJECTION_GUARD
         result: _EssaySchema = self._llm.invoke([
             {"role": "system", "content": system},
-            {"role": "user", "content": user_essay},
+            {"role": "user", "content": wrap_user_input(user_essay, tag="user_essay")},
         ])
         total = (
             result.fit_score + result.structure_score

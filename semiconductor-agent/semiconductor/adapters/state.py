@@ -29,6 +29,7 @@ class InterviewState(TypedDict):
     # ── Q&A Coach tracking ────────────────────────────────────────
     hint_count: int
     current_qa_topic: str
+    coach_tool_calls: int  # ReAct 무한 루프 방지 — turn당 누적 카운트
 
     # ── Essay Coach tracking ──────────────────────────────────────
     essay_company: Optional[str]   # "samsung_ds" | "sk_hynix"
@@ -81,6 +82,7 @@ def create_initial_state(
         web_enrichment=None,
         hint_count=0,
         current_qa_topic="",
+        coach_tool_calls=0,
         essay_company=None,
         essay_item=None,
         essay_phase="present",

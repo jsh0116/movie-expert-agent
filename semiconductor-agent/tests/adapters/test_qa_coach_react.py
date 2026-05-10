@@ -102,3 +102,64 @@ class TestQaCoachNode:
 
         spec = mock_init.call_args.args[0]
         assert spec == "anthropic:claude-sonnet-4-6"
+
+    @patch("semiconductor.adapters.nodes.qa_coach.init_chat_model")
+    def test_tool_call_counter_증가_tool_calls_있을때(self, mock_init):
+        # tool_calls 응답 → coach_tool_calls 증가 (무한 루프 방지)
+        ai_msg = AIMessage(content="", tool_calls=[
+            {"id": "c1", "name": "industry_trend_search", "args": {"query": "x"}}
+        ])
+        bound = MagicMock()
+        bound.invoke.return_value = ai_msg
+        chat = MagicMock()
+        chat.bind_tools.return_value = bound
+        mock_init.return_value = chat
+
+        s = dict(create_initial_state())
+        s["current_qa_topic"] = "ALD"
+        s["coach_tool_calls"] = 2
+        s["messages"] = [HumanMessage(content="x")]
+
+        result = qa_coach_node(s)
+
+        assert result["coach_tool_calls"] == 3
+
+    @patch("semiconductor.adapters.nodes.qa_coach.init_chat_model")
+    def test_tool_call_counter_리셋_최종답변시(self, mock_init):
+        # 일반 응답 → counter 0으로 리셋
+        ai_msg = AIMessage(content="answer", tool_calls=[])
+        bound = MagicMock()
+        bound.invoke.return_value = ai_msg
+        chat = MagicMock()
+        chat.bind_tools.return_value = bound
+        mock_init.return_value = chat
+
+        s = dict(create_initial_state())
+        s["current_qa_topic"] = "ALD"
+        s["coach_tool_calls"] = 3
+        s["messages"] = [HumanMessage(content="x")]
+
+        result = qa_coach_node(s)
+
+        assert result["coach_tool_calls"] == 0
+
+    @patch("semiconductor.adapters.nodes.qa_coach.init_chat_model")
+    def test_tool_call_상한_도달시_강제_종료(self, mock_init):
+        # 5회 도달하면 LLM 호출 없이 안내 메시지 반환
+        chat = MagicMock()
+        bound = MagicMock()
+        chat.bind_tools.return_value = bound
+        mock_init.return_value = chat
+
+        s = dict(create_initial_state())
+        s["current_qa_topic"] = "ALD"
+        s["coach_tool_calls"] = 5  # _MAX_TOOL_CALLS_PER_TURN
+        s["messages"] = [HumanMessage(content="x")]
+
+        result = qa_coach_node(s)
+
+        # LLM 호출 없이 종료
+        bound.invoke.assert_not_called()
+        assert "도구 호출" in result["display_output"]
+        assert "초과" in result["display_output"]
+        assert result["coach_tool_calls"] == 0  # 다음 턴 위해 리셋
