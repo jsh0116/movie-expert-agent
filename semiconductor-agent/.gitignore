@@ -9,3 +9,9 @@ dist/
 .adk/
 .env.*
 !.env.example.template
+
+# 자체 사용 영속화 (개인 학습 데이터)
+.agent_state.db
+.agent_state.db-*
+usage.jsonl
+uploads/

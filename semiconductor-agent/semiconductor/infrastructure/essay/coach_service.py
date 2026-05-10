@@ -10,6 +10,7 @@ from semiconductor.domain.entities import EssayEvaluation, EssayPrompt
 from semiconductor.domain.ports import IEssayCoach
 from semiconductor.infrastructure.llm.safety import INJECTION_GUARD, wrap_user_input
 from semiconductor.infrastructure.llm.tiers import model_for_role
+from semiconductor.infrastructure.observability.usage_log import log_llm_call
 
 
 class _EssaySchema(BaseModel):
@@ -74,6 +75,7 @@ class ClaudeEssayCoach(IEssayCoach):
         if base_url and model.startswith("openai:"):
             kwargs["base_url"] = base_url
         self._llm = init_chat_model(model, **kwargs).with_structured_output(_EssaySchema)
+        self._model_spec = model
 
     def evaluate_essay(self, prompt: EssayPrompt, user_essay: str) -> EssayEvaluation:
         persona = _COMPANY_PERSONA.get(prompt.company, "당신은 자소서 평가 전문가입니다.")
@@ -88,6 +90,7 @@ class ClaudeEssayCoach(IEssayCoach):
             {"role": "system", "content": system},
             {"role": "user", "content": wrap_user_input(user_essay, tag="user_essay")},
         ])
+        log_llm_call(result, node="essay", model=self._model_spec)
         total = (
             result.fit_score + result.structure_score
             + result.specificity_score + result.writing_score
