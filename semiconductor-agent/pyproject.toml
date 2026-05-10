@@ -16,6 +16,8 @@ dependencies = [
     "duckduckgo-search>=6.0.0",
     "langgraph-checkpoint-sqlite>=2.0.0",
     "ddgs>=9.14.2",
+    "langchain>=1.2.18",
+    "langchain-anthropic>=1.4.3",
 ]
 
 [tool.hatch.build.targets.wheel]

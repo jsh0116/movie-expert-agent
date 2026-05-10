@@ -1,12 +1,21 @@
-"""LangChain-based implementation of all LLM ports."""
+"""Multi-provider LLM service — provider:model 형식으로 작업별 다른 LLM 사용.
+
+Provider routing rationale (2026-05 기준):
+  - Judge / Diagnostic   → openai:gpt-4o          (structured output 안정성)
+  - Critic               → anthropic:claude-sonnet-4-6 (비판적 사고·검증)
+  - Coach                → anthropic:claude-sonnet-4-6 (한국어 + tool calling)
+  - (Phase 2) Vision     → google_genai:gemini-2.5-pro (그림·수식·1M context)
+
+env var로 자유롭게 교체 가능. provider prefix 없으면 'openai:' 자동 보완.
+"""
 from __future__ import annotations
 
 import json
 import os
 
 from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
 from semiconductor.domain.entities import (
@@ -18,21 +27,34 @@ from semiconductor.domain.ports import ICoachLLM, IDiagnosticLLM, ILLMCritic, IL
 
 load_dotenv()
 
-# 모델 차등화 — 작업 특성에 맞게 다른 모델 사용 (env var로 오버라이드 가능)
-#   - Judge / Diagnostic: 평가 정확도가 신뢰의 핵심 → 강한 모델 (기본 gpt-4o)
-#   - Coach: 한 줄짜리 힌트 응답 → 가성비 모델 (기본 gpt-4o-mini)
-_MODEL_JUDGE = os.getenv("LLM_MODEL_JUDGE", "gpt-4o")
-_MODEL_DIAGNOSTIC = os.getenv("LLM_MODEL_DIAGNOSTIC", "gpt-4o")
-_MODEL_COACH = os.getenv("LLM_MODEL_COACH", "gpt-4o-mini")
-_MODEL_CRITIC = os.getenv("LLM_MODEL_CRITIC", "gpt-4o")
+
+def _resolve_model_spec(env_var: str, default: str) -> str:
+    """env var 읽기 + provider prefix 자동 보완.
+
+    'gpt-5' → 'openai:gpt-5'
+    'anthropic:claude-opus-4-7' → 그대로
+    """
+    raw = os.getenv(env_var, default)
+    return raw if ":" in raw else f"openai:{raw}"
 
 
-def _make_llm(model: str, temperature: float = 0.3) -> ChatOpenAI:
+# 작업별 LLM provider:model 매핑
+_MODEL_JUDGE = _resolve_model_spec("LLM_MODEL_JUDGE", "openai:gpt-4o")
+_MODEL_DIAGNOSTIC = _resolve_model_spec("LLM_MODEL_DIAGNOSTIC", "openai:gpt-4o")
+_MODEL_CRITIC = _resolve_model_spec("LLM_MODEL_CRITIC", "anthropic:claude-sonnet-4-6")
+_MODEL_COACH = _resolve_model_spec("LLM_MODEL_COACH", "anthropic:claude-sonnet-4-6")
+
+
+def _make_llm(model_spec: str, temperature: float = 0.3):
+    """init_chat_model로 provider별 chat model 생성.
+
+    AI_BASE_URL은 OpenAI provider일 때만 base_url로 전달 (OpenAI-호환 endpoint 변수).
+    """
+    kwargs: dict = {"temperature": temperature}
     base_url = os.getenv("AI_BASE_URL")
-    kwargs: dict = {"model": model, "temperature": temperature}
-    if base_url:
+    if base_url and model_spec.startswith("openai:"):
         kwargs["base_url"] = base_url
-    return ChatOpenAI(**kwargs)
+    return init_chat_model(model_spec, **kwargs)
 
 
 # ── Pydantic schemas for structured output ────────────────────────
