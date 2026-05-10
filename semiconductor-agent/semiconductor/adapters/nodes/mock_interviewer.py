@@ -126,6 +126,11 @@ def mock_critic_node(state: InterviewState) -> dict:
     if final.follow_up_question:
         output += f"\n💡 심화 질문 (선택): {final.follow_up_question}\n"
 
+    # 트렌드 도메인 병렬 웹 검색 결과가 있으면 출력에 첨부
+    enrichment = state.get("web_enrichment")
+    if enrichment:
+        output += f"\n🌐 산업 최신 동향 (병렬 검색):\n{enrichment[:600]}\n"  # 길면 잘림
+
     if remaining > 0:
         output += f"\n남은 문제: {remaining}개 | 계속하려면 답변을 입력하세요."
     else:
@@ -138,7 +143,8 @@ def mock_critic_node(state: InterviewState) -> dict:
         "current_question_domain": None,
         "current_question_key_points": [],
         "pending_evaluation": None,
-        "interview_phase": "present",  # 다음 turn에서 새 질문 출제
+        "web_enrichment": None,  # turn 종료 시 정리
+        "interview_phase": "present",
         "display_output": output,
         "mode": "idle" if remaining <= 0 else "interview",
     }

@@ -9,7 +9,7 @@ Clean Architecture (4-layer) + TDD (pytest) 로 구현됨.
 
 ```bash
 uv sync --dev                          # 의존성 + pytest 설치
-uv run pytest tests/ -v                # 전체 테스트 실행 (85개)
+uv run pytest tests/ -v                # 전체 테스트 실행 (117개)
 uv run jupyter notebook main.ipynb     # 데모 노트북 실행
 uv run chainlit run chainlit_app.py    # Chainlit 웹 UI
 ```
@@ -18,43 +18,58 @@ uv run chainlit run chainlit_app.py    # Chainlit 웹 UI
 
 ```
 semiconductor/
-├── domain/              # 레이어 1: 순수 비즈니스 규칙 (외부 의존성 없음)
+├── domain/              # 레이어 1: 순수 비즈니스 규칙
 │   ├── entities.py      #   Question, EvaluationResult, DiagnosticResult
 │   └── ports.py         #   IQuestionRepository, ILLMJudge, ILLMCritic, ICoachLLM, IDiagnosticLLM
 │
 ├── application/         # 레이어 2: 유스케이스 (포트에만 의존)
 │   └── use_cases/
-│       ├── evaluate_answer.py   # EvaluateAnswerUseCase
-│       ├── next_question.py     # GetNextQuestionUseCase
-│       ├── coach_concept.py     # CoachConceptUseCase
-│       └── diagnose_session.py  # DiagnoseSessionUseCase
+│       ├── evaluate_answer.py        # judge 1차 평가
+│       ├── critique_evaluation.py    # critic 2차 검증
+│       ├── next_question.py          # 질문 풀에서 출제
+│       ├── coach_concept.py          # 소크라테스 코칭
+│       └── diagnose_session.py       # 도메인별 진단
 │
-├── infrastructure/      # 레이어 3: 포트 구현체 (LangChain / in-memory)
+├── infrastructure/      # 레이어 3: 포트 구현체 + 외부 도구
 │   ├── llm/
-│   │   └── llm_service.py      # OpenAILLMJudge, OpenAIEvaluationCritic, OpenAICoachLLM, OpenAIDiagnosticLLM
+│   │   └── llm_service.py            # OpenAI{Judge|Critic|Coach|Diagnostic}LLM
+│   ├── tools/                        # 외부 capability
+│   │   ├── calculator.py             # SemiconductorCalculator (Vth, Id, Cox)
+│   │   └── web_search.py             # IndustrySearchService (DuckDuckGo + today inject)
 │   └── question_bank/
-│       ├── _samsung_ds.py      # 삼성DS 질문 풀 (4도메인 × 5문제)
-│       └── _sk_hynix.py        # SK하이닉스 질문 풀 (4도메인 × 4~5문제)
+│       ├── _samsung_ds.py
+│       └── _sk_hynix.py
 │
-└── adapters/            # 레이어 4: LangGraph 어댑터 (thin wrappers)
-    ├── state.py                # InterviewState TypedDict + create_initial_state()
-    ├── graph.py                # create_app() → (app, state)
+└── adapters/            # 레이어 4: LangGraph 어댑터
+    ├── state.py                      # InterviewState TypedDict
+    ├── graph.py                      # create_app(), create_app_with_memory()
+    ├── tools.py                      # @tool wrappers + COACH_TOOLS list
     └── nodes/
-        ├── orchestrator.py     # 명령어 파싱 + 라우팅
-        ├── mock_interviewer.py # 질문 출력 + LLM judge 평가
-        ├── qa_coach.py         # 소크라테스 코칭 응답
-        └── diagnostic.py      # 도메인 점수 분석 + matplotlib 차트
+        ├── orchestrator.py           # 명령어 파싱 + phase-aware 라우팅
+        ├── mock_interviewer.py       # 3-node split: present / evaluate / critic
+        ├── web_enrichment.py         # 트렌드 도메인 병렬 검색 (Send API)
+        ├── qa_coach.py               # ReAct tool-calling + ToolNode
+        └── diagnostic.py             # 도메인 점수 + matplotlib 차트
 ```
 
 ## Graph Topology
 
 ```
-START → orchestrator → [conditional]
-    → mock_interviewer → END
-    → qa_coach         → END
-    → diagnostic       → END
-    → END (idle)
+START → orchestrator
+          ├──▶ mock_present  ──▶ END                            (질문 출제 turn)
+          ├──▶ eval_dispatch ─┬─▶ mock_evaluate ─┐
+          │  (Send API fanout) └─▶ web_enrichment ┼──▶ mock_critic ──▶ END
+          │                                       (트렌드만, 병렬 + 자동 join)
+          ├──▶ qa_coach ─tool_calls?─▶ coach_tools ──▶ qa_coach (ReAct loop)
+          │              └─no──▶ END
+          ├──▶ diagnostic    ──▶ END
+          └──▶ END (idle)
 ```
+
+**평가 파이프라인 ("교수 초과")**: Specialty Judge → (선택적 ∥ web_search) → Critic → 출력 6개 섹션
+**ReAct 도구 4개**: `industry_trend_search`, `calculate_threshold_voltage`, `calculate_drain_current`, `calculate_oxide_capacitance`
+**Memory**: `create_app_with_memory()` → MemorySaver. `config={"configurable":{"thread_id":"user_xxx"}}` 로 invoke 시 자동 영속화
+**Parallel Send**: 트렌드 도메인 평가 시 judge LLM과 DuckDuckGo 검색이 동시 실행 (today 날짜 자동 주입으로 stale article 방지)
 
 ## Key Configuration
 
