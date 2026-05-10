@@ -10,6 +10,7 @@ from semiconductor.domain.entities import BehavioralEvaluation, BehavioralQuesti
 from semiconductor.domain.ports import IBehavioralCoach
 from semiconductor.infrastructure.llm.safety import INJECTION_GUARD, wrap_user_input
 from semiconductor.infrastructure.llm.tiers import model_for_role
+from semiconductor.infrastructure.observability.usage_log import log_llm_call
 
 
 class _BehavioralSchema(BaseModel):
@@ -66,6 +67,7 @@ class ClaudeBehavioralCoach(IBehavioralCoach):
         if base_url and model.startswith("openai:"):
             kwargs["base_url"] = base_url
         self._llm = init_chat_model(model, **kwargs).with_structured_output(_BehavioralSchema)
+        self._model_spec = model
 
     def evaluate_behavioral(
         self,
@@ -82,6 +84,7 @@ class ClaudeBehavioralCoach(IBehavioralCoach):
             {"role": "system", "content": system},
             {"role": "user", "content": wrap_user_input(user_answer, tag="user_answer")},
         ])
+        log_llm_call(result, node="behavioral", model=self._model_spec)
         total = (
             result.situation_score + result.task_score + result.action_score
             + result.result_score + result.culture_fit

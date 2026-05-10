@@ -9,10 +9,33 @@ Clean Architecture (4-layer) + TDD (pytest) 로 구현됨.
 
 ```bash
 uv sync --dev                          # 의존성 + pytest 설치
-uv run pytest tests/ -v                # 전체 테스트 실행 (201개)
+uv run pytest tests/ -v                # 전체 테스트 실행 (232개)
 uv run jupyter notebook main.ipynb     # 데모 노트북 실행
 uv run chainlit run chainlit_app.py    # Chainlit 웹 UI
+uv run python scripts/daily.py         # 일일 면접 루틴 (영속화·이어가기)
+uv run python scripts/weekly_review.py # 주간 누적 진단 + 사용 통계 차트
 ```
+
+## 본인용 일일 사용
+
+매일 5분 면접 루틴:
+
+```bash
+# alias 등록 (zshrc / bashrc)
+alias inv="cd ~/Desktop/project/movie-expert-agent/semiconductor-agent && uv run python scripts/daily.py"
+
+# 그 후 매일
+inv
+```
+
+영속화: `.agent_state.db` (SQLite). 재시작 후에도 thread_id="hans"로 진도 이어감.
+사용 로그: `usage.jsonl` (자동). `weekly_review.py`로 주간 회고 차트.
+
+env 변수:
+- `THREAD_ID` (기본 "hans") — 사용자 식별자
+- `AGENT_DB` (기본 ".agent_state.db") — SQLite 경로
+- `USAGE_LOG_PATH` (기본 "usage.jsonl") — 호출 로그 경로
+- `DAILY_COMPANY` (기본 "samsung_ds"), `DAILY_MAX_Q` (기본 3) — daily.py 설정
 
 ## Architecture (Clean Architecture)
 

@@ -26,6 +26,7 @@ from semiconductor.domain.entities import (
 from semiconductor.domain.ports import ICoachLLM, IDiagnosticLLM, ILLMCritic, ILLMJudge
 from semiconductor.infrastructure.llm.safety import INJECTION_GUARD, wrap_user_input
 from semiconductor.infrastructure.llm.tiers import model_for_role
+from semiconductor.infrastructure.observability.usage_log import log_llm_call
 
 load_dotenv()
 
@@ -140,6 +141,7 @@ class OpenAILLMJudge(ILLMJudge):
     def __init__(self) -> None:
         # 평가는 결정론적이어야 함 (같은 답변 → 같은 점수)
         self._llm = _make_llm(_MODEL_JUDGE, temperature=0.0).with_structured_output(_EvalSchema)
+        self._model_spec = _MODEL_JUDGE
 
     def evaluate(self, question: Question, user_answer: str) -> EvaluationResult:
         system = _JUDGE_SYSTEM.format(
@@ -157,6 +159,7 @@ class OpenAILLMJudge(ILLMJudge):
                 {"role": "user", "content": user_block},
             ]
         )
+        log_llm_call(result, node="judge", model=self._model_spec)
         total = result.accuracy_score + result.depth_score + result.terminology_score
         return EvaluationResult(
             accuracy_score=result.accuracy_score,
@@ -197,6 +200,7 @@ class OpenAICoachLLM(ICoachLLM):
     def __init__(self) -> None:
         # 코칭은 약간의 다양성이 자연스러움 (같은 힌트도 매번 살짝 다르게)
         self._llm = _make_llm(_MODEL_COACH, temperature=0.5)
+        self._model_spec = _MODEL_COACH
 
     def get_response(self, topic: str, messages: list[BaseMessage], hint_count: int) -> str:
         rule_key = min(hint_count, 3)
@@ -210,6 +214,7 @@ class OpenAICoachLLM(ICoachLLM):
             elif isinstance(m, AIMessage):
                 llm_messages.append({"role": "assistant", "content": m.content})
         response = self._llm.invoke(llm_messages)
+        log_llm_call(response, node="coach", model=self._model_spec)
         return response.content
 
 
@@ -229,6 +234,7 @@ class OpenAIDiagnosticLLM(IDiagnosticLLM):
     def __init__(self) -> None:
         # 진단도 결정론적이어야 함 (같은 평가 → 같은 진단)
         self._llm = _make_llm(_MODEL_DIAGNOSTIC, temperature=0.0).with_structured_output(_DiagSchema)
+        self._model_spec = _MODEL_DIAGNOSTIC
 
     def analyze(self, evaluations: list[EvaluationResult]) -> DiagnosticResult:
         evals_json = json.dumps(
@@ -247,6 +253,7 @@ class OpenAIDiagnosticLLM(IDiagnosticLLM):
         result: _DiagSchema = self._llm.invoke(
             [{"role": "system", "content": _DIAGNOSTIC_SYSTEM.format(evaluations_json=evals_json)}]
         )
+        log_llm_call(result, node="diagnostic", model=self._model_spec)
         return DiagnosticResult(
             domain_scores=result.domain_scores,
             weak_topics=result.weak_topics,
@@ -297,6 +304,7 @@ class OpenAIEvaluationCritic(ILLMCritic):
     def __init__(self) -> None:
         # 검증도 결정론적이어야 함
         self._llm = _make_llm(_MODEL_CRITIC, temperature=0.0).with_structured_output(_EvalSchema)
+        self._model_spec = _MODEL_CRITIC
 
     def critique(
         self,
@@ -321,6 +329,7 @@ class OpenAIEvaluationCritic(ILLMCritic):
         result: _EvalSchema = self._llm.invoke(
             [{"role": "system", "content": prompt + INJECTION_GUARD}]
         )
+        log_llm_call(result, node="critic", model=self._model_spec)
         total = result.accuracy_score + result.depth_score + result.terminology_score
         return EvaluationResult(
             accuracy_score=result.accuracy_score,

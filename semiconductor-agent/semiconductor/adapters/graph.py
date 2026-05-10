@@ -165,3 +165,31 @@ def create_app_with_memory(
         max_questions=max_questions,
         checkpointer=MemorySaver(),
     )
+
+
+def create_app_with_sqlite(
+    db_path: str = ".agent_state.db",
+    company: str = "samsung_ds",
+    domain: Optional[str] = None,
+    max_questions: int = 5,
+):
+    """디스크 영속화 팩토리 — 매일 진도 이어가기.
+
+    프로세스 재시작 후에도 thread_id 기반으로 이전 면접·진단·자소서 상태 복원.
+    상용화 시 PostgresSaver로 swap만 하면 멀티유저 지원.
+
+    Args:
+        db_path: SQLite 파일 경로 (기본 ./.agent_state.db, gitignore 처리)
+    """
+    from langgraph.checkpoint.sqlite import SqliteSaver
+    import sqlite3
+
+    # check_same_thread=False — Jupyter / Chainlit 같이 다른 thread에서 invoke 가능하게
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    saver = SqliteSaver(conn)
+    return create_app(
+        company=company,
+        domain=domain,
+        max_questions=max_questions,
+        checkpointer=saver,
+    )
