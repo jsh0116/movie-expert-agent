@@ -11,6 +11,7 @@ _QA_TRIGGERS = {"/qa", "/코칭"}
 _DIAGNOSTIC_TRIGGERS = {"/진단", "/diagnostic"}
 _ESSAY_TRIGGERS = {"/자소서", "/essay"}
 _BEHAVIORAL_TRIGGERS = {"/인성", "/behavioral"}
+_APTITUDE_TRIGGERS = {"/적성", "/aptitude"}
 
 
 def orchestrator_node(state: InterviewState) -> dict:
@@ -72,6 +73,19 @@ def orchestrator_node(state: InterviewState) -> dict:
                 "behavioral_company": company,
             }
 
+    for cmd in _APTITUDE_TRIGGERS:
+        if lower.startswith(cmd):
+            # /적성 [GSAT|SKCT] — 기본 GSAT
+            args = text[len(cmd):].strip().split()
+            test_type = args[0].upper() if args else "GSAT"
+            if test_type not in ("GSAT", "SKCT"):
+                test_type = "GSAT"
+            return {
+                "mode": "aptitude",
+                "aptitude_phase": "present",
+                "aptitude_test_type": test_type,
+            }
+
     return {}
 
 
@@ -88,6 +102,9 @@ def route_from_orchestrator(state: InterviewState) -> str:
     if mode == "behavioral":
         phase = state.get("behavioral_phase", "present")
         return "behavioral_present" if phase == "present" else "behavioral_evaluate"
+    if mode == "aptitude":
+        phase = state.get("aptitude_phase", "present")
+        return "aptitude_present" if phase == "present" else "aptitude_evaluate"
     if mode == "qa":
         return "qa_coach"
     if mode == "diagnostic":

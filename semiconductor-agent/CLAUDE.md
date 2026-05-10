@@ -9,7 +9,7 @@ Clean Architecture (4-layer) + TDD (pytest) 로 구현됨.
 
 ```bash
 uv sync --dev                          # 의존성 + pytest 설치
-uv run pytest tests/ -v                # 전체 테스트 실행 (162개)
+uv run pytest tests/ -v                # 전체 테스트 실행 (190개)
 uv run jupyter notebook main.ipynb     # 데모 노트북 실행
 uv run chainlit run chainlit_app.py    # Chainlit 웹 UI
 ```
@@ -84,6 +84,11 @@ START → orchestrator
   - provider prefix 없으면 `openai:` 자동 보완 (예: `gpt-5` → `openai:gpt-5`)
   - `AI_BASE_URL`은 OpenAI provider일 때만 적용
   - 필요한 API 키: `OPENAI_API_KEY` + `ANTHROPIC_API_KEY`
+- Adaptive critic skip — 평가 비용 절감
+  - mock_critic은 1차 평가 점수가 회색지대(31~84)일 때만 호출
+  - 확신 영역(>=85 우수, <=30 미흡)은 LLM critic 생략 → 평균 -50% 비용
+  - `CRITIC_SKIP_HIGH` / `CRITIC_SKIP_LOW` env로 임계값 조정 가능
+  - `LLM_DISABLE_CRITIC_SKIP=1` 설정 시 강제 호출 (디버깅용)
 - LLM judge 루브릭: 정확성 40 + 깊이 30 + 전문용어 30 = 100점
 
 ## 평가 파이프라인 ("교수 초과" 메커니즘)
@@ -118,6 +123,7 @@ START → orchestrator
 | `/qa [주제]` | 소크라테스 코칭 + ReAct tool (검색·계산기) |
 | `/자소서 [회사] [항목]` | 자소서 첨삭 (4축 rubric, 회사 인재상 매칭) |
 | `/인성 [회사]` | 인성면접 STAR 평가 (5축 rubric) |
+| `/적성 [GSAT\|SKCT]` | 적성검사 객관식 (수리/추리/언어/공간) — LLM 미사용, 정적 채점 |
 | `/진단` | 도메인별 이해도 진단 + matplotlib 차트 |
 | `quit` | 세션 종료 |
 

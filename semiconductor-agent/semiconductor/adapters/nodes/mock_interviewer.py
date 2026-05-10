@@ -86,20 +86,35 @@ def mock_critic_node(state: InterviewState) -> dict:
 
     initial = _deserialize_eval(pending)
 
-    critique_uc = CritiqueEvaluationUseCase(llm_critic=LangChainLLMService.critic())
-    q = Question(
-        domain=state["current_question_domain"],
-        question=state["current_question_text"],
-        key_points=state.get("current_question_key_points") or [],
-    )
-    human_msgs = [m for m in state.get("messages", []) if isinstance(m, HumanMessage)]
-    user_answer = human_msgs[-1].content if human_msgs else ""
+    # Adaptive critic skip — 확신 영역(>=85 또는 <=30)이면 critic LLM 호출 생략.
+    # 평가 신뢰도가 명확한 케이스에서 LLM 비용 50%↓.
+    # env LLM_DISABLE_CRITIC_SKIP=1 설정 시 항상 호출 (디버깅·일관성용).
+    import os
+    skip_threshold_high = int(os.getenv("CRITIC_SKIP_HIGH", "85"))
+    skip_threshold_low = int(os.getenv("CRITIC_SKIP_LOW", "30"))
+    skip_disabled = os.getenv("LLM_DISABLE_CRITIC_SKIP") == "1"
 
-    final = critique_uc.execute(
-        question=q,
-        user_answer=user_answer,
-        initial_evaluation=initial,
-    )
+    if not skip_disabled and (
+        initial.total_score >= skip_threshold_high
+        or initial.total_score <= skip_threshold_low
+    ):
+        # 확신 영역 → critic 생략, 1차 평가 그대로 사용
+        final = initial
+    else:
+        # 회색지대(31~84) → critic 호출
+        critique_uc = CritiqueEvaluationUseCase(llm_critic=LangChainLLMService.critic())
+        q = Question(
+            domain=state["current_question_domain"],
+            question=state["current_question_text"],
+            key_points=state.get("current_question_key_points") or [],
+        )
+        human_msgs = [m for m in state.get("messages", []) if isinstance(m, HumanMessage)]
+        user_answer = human_msgs[-1].content if human_msgs else ""
+        final = critique_uc.execute(
+            question=q,
+            user_answer=user_answer,
+            initial_evaluation=initial,
+        )
 
     new_asked = state["asked_count"] + 1
     remaining = state["max_questions"] - new_asked

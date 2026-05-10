@@ -192,3 +192,67 @@ class TestMockCriticNode:
 
         # graceful degradation — 원본 평가 보존
         assert result["evaluations"][0]["total_score"] == 65
+
+
+class TestAdaptiveCriticSkip:
+    """확신 영역(매우 높거나 매우 낮은 점수)에서 critic LLM 호출 생략 — 비용 50%↓."""
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_high_confidence_85_이상이면_critic_skip(self, mock_svc):
+        mock_critic = MagicMock()
+        mock_svc.critic.return_value = mock_critic
+
+        initial = _make_eval(total=90)  # 우수 확신
+        s = _phase_evaluate_state()
+        s["pending_evaluation"] = _serialize_eval(initial)
+
+        result = mock_critic_node(s)
+
+        # critic 호출 없어야 함, 초기 평가 그대로 저장
+        mock_critic.critique.assert_not_called()
+        assert result["evaluations"][0]["total_score"] == 90
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_low_confidence_30_이하면_critic_skip(self, mock_svc):
+        mock_critic = MagicMock()
+        mock_svc.critic.return_value = mock_critic
+
+        initial = _make_eval(total=20)  # 미흡 확신
+        s = _phase_evaluate_state()
+        s["pending_evaluation"] = _serialize_eval(initial)
+
+        result = mock_critic_node(s)
+
+        mock_critic.critique.assert_not_called()
+        assert result["evaluations"][0]["total_score"] == 20
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_회색지대_31_84점은_critic_호출(self, mock_svc):
+        # 회색지대 점수는 critic 검증 필요
+        mock_critic = MagicMock()
+        mock_critic.critique.return_value = _make_eval(total=70)
+        mock_svc.critic.return_value = mock_critic
+
+        initial = _make_eval(total=60)
+        s = _phase_evaluate_state()
+        s["pending_evaluation"] = _serialize_eval(initial)
+
+        mock_critic_node(s)
+
+        mock_critic.critique.assert_called_once()
+
+    @patch("semiconductor.adapters.nodes.mock_interviewer.LangChainLLMService")
+    def test_LLM_DISABLE_CRITIC_SKIP_설정시_무조건_호출(self, mock_svc, monkeypatch):
+        # 디버깅·일관성용 토글 — skip 비활성화하면 확신 영역에서도 critic 호출
+        monkeypatch.setenv("LLM_DISABLE_CRITIC_SKIP", "1")
+        mock_critic = MagicMock()
+        mock_critic.critique.return_value = _make_eval(total=95)
+        mock_svc.critic.return_value = mock_critic
+
+        initial = _make_eval(total=95)
+        s = _phase_evaluate_state()
+        s["pending_evaluation"] = _serialize_eval(initial)
+
+        mock_critic_node(s)
+
+        mock_critic.critique.assert_called_once()
