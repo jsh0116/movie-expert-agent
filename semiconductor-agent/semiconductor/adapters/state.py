@@ -24,6 +24,7 @@ class InterviewState(TypedDict):
     current_question_key_points: list[str]
     evaluations: list[dict]  # serialized EvaluationResult dicts
     pending_evaluation: Optional[dict]  # judge 결과, critic이 받아 검증 (turn 내에서만 유효)
+    web_enrichment: Optional[str]  # 트렌드 도메인 평가 시 병렬 웹검색 결과 (Send API)
 
     # ── Q&A Coach tracking ────────────────────────────────────────
     hint_count: int
@@ -56,6 +57,7 @@ def create_initial_state(
         current_question_key_points=[],
         evaluations=[],
         pending_evaluation=None,
+        web_enrichment=None,
         hint_count=0,
         current_qa_topic="",
         messages=[],

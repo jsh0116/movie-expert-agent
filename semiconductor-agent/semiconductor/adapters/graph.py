@@ -1,9 +1,27 @@
-"""LangGraph assembly — wires all adapter nodes into a compiled StateGraph."""
+"""LangGraph assembly — wires all adapter nodes into a compiled StateGraph.
+
+Topology:
+    START → orchestrator
+              ├──▶ mock_present  ──▶ END                                  (질문 출제)
+              ├──▶ mock_evaluate ─┐
+              ├──▶ web_enrichment ┼──▶ mock_critic ──▶ END                (평가 + 트렌드면 병렬 검색)
+              ├──▶ qa_coach ──tool_calls?──▶ coach_tools ──▶ qa_coach (loop)
+              │                  └──no──▶ END
+              ├──▶ diagnostic    ──▶ END
+              └──▶ END (idle)
+
+Optional features:
+    - Checkpointer (Memory): create_app(checkpointer=...) — thread_id로 영속화
+    - Parallel (Send API): 트렌드 도메인 평가 시 mock_evaluate ∥ web_enrichment
+    - ReAct tools: qa_coach가 industry_search / 반도체 계산기 호출
+"""
 from __future__ import annotations
 
 from typing import Optional
 
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
+from langgraph.types import Send
 
 from semiconductor.adapters.nodes.diagnostic import diagnostic_node
 from semiconductor.adapters.nodes.mock_interviewer import (
@@ -12,59 +30,111 @@ from semiconductor.adapters.nodes.mock_interviewer import (
     mock_present_node,
 )
 from semiconductor.adapters.nodes.orchestrator import orchestrator_node, route_from_orchestrator
-from semiconductor.adapters.nodes.qa_coach import qa_coach_node
+from semiconductor.adapters.nodes.qa_coach import (
+    coach_tools_node,
+    qa_coach_node,
+    route_after_coach,
+)
+from semiconductor.adapters.nodes.web_enrichment import web_enrichment_node
 from semiconductor.adapters.state import InterviewState, create_initial_state
+
+
+def _eval_dispatch(state: InterviewState) -> list:
+    """평가 turn 시 fan-out: 항상 mock_evaluate, 트렌드 도메인이면 web_enrichment 병렬."""
+    sends = [Send("mock_evaluate", state)]
+    if state.get("current_question_domain") == "트렌드":
+        sends.append(Send("web_enrichment", state))
+    return sends
 
 
 def create_app(
     company: str = "samsung_ds",
     domain: Optional[str] = None,
     max_questions: int = 5,
+    checkpointer=None,
 ):
     """Build and compile the interview StateGraph.
 
-    Topology:
-        START → orchestrator
-                  ├──▶ mock_present  ──▶ END                 (질문 출제 turn)
-                  ├──▶ mock_evaluate ──▶ mock_critic ──▶ END (답변 평가 turn, 2-pass)
-                  ├──▶ qa_coach      ──▶ END
-                  ├──▶ diagnostic    ──▶ END
-                  └──▶ END (idle)
+    Args:
+        checkpointer: LangGraph 체크포인터 (MemorySaver, SqliteSaver 등).
+                      None이면 영속화 없이 기본 동작.
 
     Returns:
         (app, state) — compiled LangGraph app and an initialized state dict.
     """
     builder = StateGraph(InterviewState)
 
+    # ── Nodes ────────────────────────────────────────────────────
     builder.add_node("orchestrator", orchestrator_node)
     builder.add_node("mock_present", mock_present_node)
+    builder.add_node("eval_dispatch", lambda s: {})  # no-op fan-out 진입점
     builder.add_node("mock_evaluate", mock_evaluate_node)
+    builder.add_node("web_enrichment", web_enrichment_node)
     builder.add_node("mock_critic", mock_critic_node)
     builder.add_node("qa_coach", qa_coach_node)
+    builder.add_node("coach_tools", coach_tools_node)
     builder.add_node("diagnostic", diagnostic_node)
 
     builder.set_entry_point("orchestrator")
 
+    # ── Orchestrator routing ─────────────────────────────────────
     builder.add_conditional_edges(
         "orchestrator",
         route_from_orchestrator,
         {
             "mock_present": "mock_present",
-            "mock_evaluate": "mock_evaluate",
+            "mock_evaluate": "eval_dispatch",  # evaluate phase는 fan-out 거침
             "qa_coach": "qa_coach",
             "diagnostic": "diagnostic",
             END: END,
         },
     )
 
-    # 평가 turn은 evaluate → critic 직렬 연결 (turn 내 2-pass)
+    # ── Parallel fan-out: eval_dispatch → [mock_evaluate, web_enrichment?] ──
+    builder.add_conditional_edges("eval_dispatch", _eval_dispatch)
+
+    # ── Convergence: mock_evaluate / web_enrichment → mock_critic ──
     builder.add_edge("mock_evaluate", "mock_critic")
+    builder.add_edge("web_enrichment", "mock_critic")
     builder.add_edge("mock_critic", END)
+
+    # ── qa_coach ReAct loop ──────────────────────────────────────
+    builder.add_conditional_edges(
+        "qa_coach",
+        route_after_coach,
+        {
+            "coach_tools": "coach_tools",
+            END: END,
+        },
+    )
+    builder.add_edge("coach_tools", "qa_coach")  # 도구 결과로 다시 코치에게
+
+    # ── Single-path nodes ────────────────────────────────────────
     builder.add_edge("mock_present", END)
-    builder.add_edge("qa_coach", END)
     builder.add_edge("diagnostic", END)
 
-    app = builder.compile()
+    compile_kwargs = {}
+    if checkpointer is not None:
+        compile_kwargs["checkpointer"] = checkpointer
+
+    app = builder.compile(**compile_kwargs)
     state = create_initial_state(company=company, domain=domain, max_questions=max_questions)
 
     return app, state
+
+
+def create_app_with_memory(
+    company: str = "samsung_ds",
+    domain: Optional[str] = None,
+    max_questions: int = 5,
+):
+    """편의 팩토리: in-memory checkpointer로 영속화 활성화.
+
+    Production 배포 시 SqliteSaver / PostgresSaver로 교체.
+    """
+    return create_app(
+        company=company,
+        domain=domain,
+        max_questions=max_questions,
+        checkpointer=MemorySaver(),
+    )
