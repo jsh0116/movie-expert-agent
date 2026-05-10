@@ -92,11 +92,11 @@ class TestEssayPresentNode:
 
 
 class TestEssayEvaluateNode:
-    @patch("semiconductor.adapters.nodes.essay_coach.ClaudeEssayCoach")
-    def test_사용자_자소서를_평가하고_출력에_점수_표시(self, mock_coach_cls):
+    @patch("semiconductor.adapters.nodes.essay_coach.LangChainLLMService")
+    def test_사용자_자소서를_평가하고_출력에_점수_표시(self, mock_svc):
         mock_coach = MagicMock()
         mock_coach.evaluate_essay.return_value = _make_essay_eval(total=85)
-        mock_coach_cls.return_value = mock_coach
+        mock_svc.essay.return_value = mock_coach
 
         s = dict(create_initial_state())
         s["essay_company"] = "samsung_ds"
@@ -115,8 +115,8 @@ class TestEssayEvaluateNode:
         assert len(result["essays_evaluated"]) == 1
         assert result["essays_evaluated"][0]["company"] == "samsung_ds"
 
-    @patch("semiconductor.adapters.nodes.essay_coach.ClaudeEssayCoach")
-    def test_빈_자소서는_거부(self, mock_coach_cls):
+    @patch("semiconductor.adapters.nodes.essay_coach.LangChainLLMService")
+    def test_빈_자소서는_거부(self, mock_svc):
         s = dict(create_initial_state())
         s["essay_company"] = "samsung_ds"
         s["essay_item"] = "지원동기"
@@ -125,7 +125,7 @@ class TestEssayEvaluateNode:
         result = essay_evaluate_node(s)
 
         assert "비어있습니다" in result["display_output"]
-        mock_coach_cls.assert_not_called()  # LLM 호출 없음
+        mock_svc.essay.assert_not_called()  # LLM 호출 없음
 
     def test_컨텍스트_손실시_가이드_복귀(self):
         # essay_company / essay_item 둘 다 None — 잘못된 진입

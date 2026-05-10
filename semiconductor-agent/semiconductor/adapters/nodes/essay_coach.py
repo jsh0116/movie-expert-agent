@@ -10,12 +10,12 @@ from langchain_core.messages import HumanMessage
 
 from semiconductor.adapters.state import InterviewState
 from semiconductor.application.use_cases.coach_essay import CoachEssayUseCase
-from semiconductor.infrastructure.essay.coach_service import ClaudeEssayCoach
 from semiconductor.infrastructure.essay.prompts import (
     get_essay_prompt,
     list_companies,
     list_items,
 )
+from semiconductor.infrastructure.llm import LangChainLLMService
 
 
 def essay_present_node(state: InterviewState) -> dict:
@@ -83,7 +83,7 @@ def essay_evaluate_node(state: InterviewState) -> dict:
             "display_output": "❌ 자소서 텍스트가 비어있습니다. 다시 입력해주세요.",
         }
 
-    use_case = CoachEssayUseCase(ClaudeEssayCoach())
+    use_case = CoachEssayUseCase(LangChainLLMService.essay())
     result = use_case.execute(prompt=prompt, user_essay=user_essay)
 
     output_lines = [

@@ -340,7 +340,11 @@ class OpenAIEvaluationCritic(ILLMCritic):
 # ── Composite service for convenience ────────────────────────────
 
 class LangChainLLMService:
-    """Factory that creates all LLM port implementations."""
+    """Factory that creates all LLM port implementations.
+
+    Adapter 노드는 이 factory를 통해서만 LLM service를 얻는다 (DI 일관성).
+    Essay/Behavioral은 별도 모듈에서 import — circular import 방지 위해 lazy.
+    """
 
     @staticmethod
     def judge() -> ILLMJudge:
@@ -357,3 +361,17 @@ class LangChainLLMService:
     @staticmethod
     def diagnostic() -> IDiagnosticLLM:
         return OpenAIDiagnosticLLM()
+
+    @staticmethod
+    def essay():
+        """IEssayCoach 구현체 반환 (lazy import — circular 방지)."""
+        from semiconductor.infrastructure.essay.coach_service import ClaudeEssayCoach
+        return ClaudeEssayCoach()
+
+    @staticmethod
+    def behavioral():
+        """IBehavioralCoach 구현체 반환 (lazy import — circular 방지)."""
+        from semiconductor.infrastructure.behavioral.coach_service import (
+            ClaudeBehavioralCoach,
+        )
+        return ClaudeBehavioralCoach()

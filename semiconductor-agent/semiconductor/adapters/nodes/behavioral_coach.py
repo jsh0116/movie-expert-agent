@@ -6,8 +6,8 @@ from langchain_core.messages import HumanMessage
 from semiconductor.adapters.state import InterviewState
 from semiconductor.application.use_cases.coach_behavioral import CoachBehavioralUseCase
 from semiconductor.domain.entities import BehavioralQuestion
-from semiconductor.infrastructure.behavioral.coach_service import ClaudeBehavioralCoach
 from semiconductor.infrastructure.behavioral.questions import pick_question
+from semiconductor.infrastructure.llm import LangChainLLMService
 
 
 def behavioral_present_node(state: InterviewState) -> dict:
@@ -55,7 +55,7 @@ def behavioral_evaluate_node(state: InterviewState) -> dict:
         return {"display_output": "❌ 답변이 비어있습니다."}
 
     q = BehavioralQuestion(company=company, question=q_text, competency=competency)
-    use_case = CoachBehavioralUseCase(ClaudeBehavioralCoach())
+    use_case = CoachBehavioralUseCase(LangChainLLMService.behavioral())
     result = use_case.execute(q, user_answer)
 
     lines = [
