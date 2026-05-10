@@ -23,7 +23,7 @@ def orchestrator_node(state: InterviewState) -> dict:
 
     for cmd in _INTERVIEW_TRIGGERS:
         if lower.startswith(cmd):
-            return {"mode": "interview"}
+            return {"mode": "interview", "interview_phase": "present"}
 
     for cmd in _QA_TRIGGERS:
         if lower.startswith(cmd):
@@ -51,7 +51,9 @@ def orchestrator_node(state: InterviewState) -> dict:
 def route_from_orchestrator(state: InterviewState) -> str:
     mode = state.get("mode", "idle")
     if mode == "interview":
-        return "mock_interviewer"
+        # phase 기반 분기: present(질문 출제) vs evaluate(답변 평가)
+        phase = state.get("interview_phase", "present")
+        return "mock_present" if phase == "present" else "mock_evaluate"
     if mode == "qa":
         return "qa_coach"
     if mode == "diagnostic":
