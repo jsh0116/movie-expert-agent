@@ -9,7 +9,7 @@ Clean Architecture (4-layer) + TDD (pytest) 로 구현됨.
 
 ```bash
 uv sync --dev                          # 의존성 + pytest 설치
-uv run pytest tests/ -v                # 전체 테스트 실행 (117개)
+uv run pytest tests/ -v                # 전체 테스트 실행 (162개)
 uv run jupyter notebook main.ipynb     # 데모 노트북 실행
 uv run chainlit run chainlit_app.py    # Chainlit 웹 UI
 ```
@@ -75,14 +75,15 @@ START → orchestrator
 
 - `.env`에 `OPENAI_API_KEY` 필수
 - `AI_BASE_URL` 설정 시 커스텀 엔드포인트 사용
-- Multi-provider routing (`init_chat_model` 기반, env var로 자유 교체):
-  - `LLM_MODEL_JUDGE` (기본 `openai:gpt-4o`, temp=0.0) — structured output 안정성
-  - `LLM_MODEL_CRITIC` (기본 `anthropic:claude-sonnet-4-6`, temp=0.0) — 비판적 사고·검증
-  - `LLM_MODEL_DIAGNOSTIC` (기본 `openai:gpt-4o`, temp=0.0) — structured 분석
-  - `LLM_MODEL_COACH` (기본 `anthropic:claude-sonnet-4-6`, temp=0.5) — 한국어 + ReAct tool calling
+- Multi-provider routing (`init_chat_model` 기반):
+  - `LLM_TIER` env var (premium / standard / budget) → 역할별 model mapping
+  - **premium**: `openai:gpt-4o` (Judge) + `anthropic:claude-sonnet-4-6` (Critic·Coach·Essay·Behavioral) + `openai:gpt-4o-mini` (Diagnostic)
+  - **standard**: `openai:gpt-4o-mini` + `anthropic:claude-haiku-4-5` (Pro 진입 가성비, 비용 1/5)
+  - **budget**: `openai:gpt-4o-mini` 단일 모델 통일 (Free 사용자, 비용 1/10)
+  - 명시 env var (`LLM_MODEL_{ROLE}`)이 tier보다 우선
   - provider prefix 없으면 `openai:` 자동 보완 (예: `gpt-5` → `openai:gpt-5`)
-  - `AI_BASE_URL`은 OpenAI provider일 때만 적용 (OpenAI-호환 endpoint 변수)
-  - 필요한 API 키: `OPENAI_API_KEY` + `ANTHROPIC_API_KEY` (Phase 2 추가 시 `GOOGLE_API_KEY`)
+  - `AI_BASE_URL`은 OpenAI provider일 때만 적용
+  - 필요한 API 키: `OPENAI_API_KEY` + `ANTHROPIC_API_KEY`
 - LLM judge 루브릭: 정확성 40 + 깊이 30 + 전문용어 30 = 100점
 
 ## 평가 파이프라인 ("교수 초과" 메커니즘)
@@ -109,11 +110,15 @@ START → orchestrator
 - **회로**: 메모리 컨트롤러 회로 설계자 — 센스앰프/차지펌프 마진 중시
 - **트렌드**: TSMC/Samsung Foundry 산업 분석가 — EUV/HBM/GAA 로드맵 중시
 
-## User Commands (in notebook)
+## User Commands
 
 | 입력 | 동작 |
 |------|------|
-| `/인터뷰` | 모의면접 시작 (회사별 질문 출제) |
-| `/qa [주제]` | 소크라테스 코칭 시작 |
-| `/진단` | 도메인별 이해도 진단 + 차트 |
+| `/인터뷰` | 모의 기술면접 (4도메인 × 5문제, judge → critic 2-pass) |
+| `/qa [주제]` | 소크라테스 코칭 + ReAct tool (검색·계산기) |
+| `/자소서 [회사] [항목]` | 자소서 첨삭 (4축 rubric, 회사 인재상 매칭) |
+| `/인성 [회사]` | 인성면접 STAR 평가 (5축 rubric) |
+| `/진단` | 도메인별 이해도 진단 + matplotlib 차트 |
 | `quit` | 세션 종료 |
+
+회사: `samsung_ds` / `sk_hynix`. 자소서 항목: `지원동기` / `직무역량` / `성장과정` / `갈등극복`.

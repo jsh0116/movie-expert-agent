@@ -21,8 +21,13 @@ from semiconductor.adapters.tools import COACH_TOOLS
 
 
 def _resolve_coach_model() -> str:
-    raw = os.getenv("LLM_MODEL_COACH", "anthropic:claude-sonnet-4-6")
-    return raw if ":" in raw else f"openai:{raw}"
+    """tier 또는 명시 env로 결정. llm_service의 _resolve_model_spec과 동일 정책."""
+    from semiconductor.infrastructure.llm.tiers import model_for_role
+    explicit = os.getenv("LLM_MODEL_COACH")
+    if explicit:
+        return explicit if ":" in explicit else f"openai:{explicit}"
+    tier = os.getenv("LLM_TIER", "premium")
+    return model_for_role(tier, "coach")
 
 _COACH_RULES = {
     0: "선행 지식을 파악하세요. '어디까지 알고 있어요?' 같은 탐색 질문으로 시작. 절대 직접 답하지 마세요.",

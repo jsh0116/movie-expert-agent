@@ -4,7 +4,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from semiconductor.domain.entities import DiagnosticResult, EvaluationResult, Question
+from semiconductor.domain.entities import (
+    BehavioralEvaluation,
+    BehavioralQuestion,
+    DiagnosticResult,
+    EssayEvaluation,
+    EssayPrompt,
+    EvaluationResult,
+    Question,
+)
 
 
 class IQuestionRepository(ABC):
@@ -34,6 +42,26 @@ class IDiagnosticLLM(ABC):
     @abstractmethod
     def analyze(self, evaluations: list[EvaluationResult]) -> DiagnosticResult:
         """Analyze interview evaluations and produce domain scores."""
+
+
+class IEssayCoach(ABC):
+    """자소서 첨삭 LLM."""
+
+    @abstractmethod
+    def evaluate_essay(self, prompt: EssayPrompt, user_essay: str) -> EssayEvaluation:
+        """회사 인재상 + STAR 구조 + 구체성 + 작문 4축으로 평가."""
+
+
+class IBehavioralCoach(ABC):
+    """인성면접 (STAR 기법) 평가 LLM."""
+
+    @abstractmethod
+    def evaluate_behavioral(
+        self,
+        question: BehavioralQuestion,
+        user_answer: str,
+    ) -> BehavioralEvaluation:
+        """STAR 4단계 + 회사 인재상 부합도로 평가."""
 
 
 class ILLMCritic(ABC):

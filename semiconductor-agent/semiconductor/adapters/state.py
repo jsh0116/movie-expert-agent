@@ -30,6 +30,20 @@ class InterviewState(TypedDict):
     hint_count: int
     current_qa_topic: str
 
+    # ── Essay Coach tracking ──────────────────────────────────────
+    essay_company: Optional[str]   # "samsung_ds" | "sk_hynix"
+    essay_item: Optional[str]      # "지원동기" | ...
+    essay_phase: str               # "present" | "evaluate"
+    essays_evaluated: list[dict]   # 누적 자소서 평가 결과
+
+    # ── Behavioral Interview tracking ─────────────────────────────
+    behavioral_company: Optional[str]
+    behavioral_question_text: Optional[str]
+    behavioral_competency: Optional[str]
+    behavioral_phase: str          # "present" | "evaluate"
+    behavioral_asked_count: int
+    behaviorals_evaluated: list[dict]
+
     # ── Conversation history (accumulates across turns) ───────────
     messages: Annotated[list[BaseMessage], add_messages]
 
@@ -60,12 +74,24 @@ def create_initial_state(
         web_enrichment=None,
         hint_count=0,
         current_qa_topic="",
+        essay_company=None,
+        essay_item=None,
+        essay_phase="present",
+        essays_evaluated=[],
+        behavioral_company=None,
+        behavioral_question_text=None,
+        behavioral_competency=None,
+        behavioral_phase="present",
+        behavioral_asked_count=0,
+        behaviorals_evaluated=[],
         messages=[],
         display_output=(
             "👋 반도체 면접 준비 에이전트에 오신 걸 환영합니다!\n\n"
             "📋 명령어 안내:\n"
             "  /인터뷰   — 모의 기술 면접 시작\n"
             "  /qa [주제] — 개념 학습 코치 (소크라테스 방식)\n"
+            "  /자소서 [회사] [항목] — 자소서 첨삭 (예: /자소서 samsung_ds 지원동기)\n"
+            "  /인성 [회사] — 인성면접 STAR 기법 평가 (예: /인성 samsung_ds)\n"
             "  /진단     — 이해도 진단 및 시각화\n"
         ),
         chart_png=None,

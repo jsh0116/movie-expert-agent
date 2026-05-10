@@ -24,25 +24,28 @@ from semiconductor.domain.entities import (
     Question,
 )
 from semiconductor.domain.ports import ICoachLLM, IDiagnosticLLM, ILLMCritic, ILLMJudge
+from semiconductor.infrastructure.llm.tiers import model_for_role
 
 load_dotenv()
 
 
-def _resolve_model_spec(env_var: str, default: str) -> str:
-    """env var 읽기 + provider prefix 자동 보완.
-
-    'gpt-5' → 'openai:gpt-5'
-    'anthropic:claude-opus-4-7' → 그대로
+def _resolve_model_spec(env_var: str, role: str) -> str:
+    """역할별 모델 결정 우선순위:
+      1. 명시 env var (`LLM_MODEL_{ROLE}`) — provider prefix 없으면 'openai:' 보완
+      2. tier 매핑 (`LLM_TIER` env, 기본 'premium')
     """
-    raw = os.getenv(env_var, default)
-    return raw if ":" in raw else f"openai:{raw}"
+    explicit = os.getenv(env_var)
+    if explicit:
+        return explicit if ":" in explicit else f"openai:{explicit}"
+    tier = os.getenv("LLM_TIER", "premium")
+    return model_for_role(tier, role)
 
 
-# 작업별 LLM provider:model 매핑
-_MODEL_JUDGE = _resolve_model_spec("LLM_MODEL_JUDGE", "openai:gpt-4o")
-_MODEL_DIAGNOSTIC = _resolve_model_spec("LLM_MODEL_DIAGNOSTIC", "openai:gpt-4o")
-_MODEL_CRITIC = _resolve_model_spec("LLM_MODEL_CRITIC", "anthropic:claude-sonnet-4-6")
-_MODEL_COACH = _resolve_model_spec("LLM_MODEL_COACH", "anthropic:claude-sonnet-4-6")
+# 작업별 LLM provider:model — tier 또는 명시 env var로 결정
+_MODEL_JUDGE = _resolve_model_spec("LLM_MODEL_JUDGE", "judge")
+_MODEL_DIAGNOSTIC = _resolve_model_spec("LLM_MODEL_DIAGNOSTIC", "diagnostic")
+_MODEL_CRITIC = _resolve_model_spec("LLM_MODEL_CRITIC", "critic")
+_MODEL_COACH = _resolve_model_spec("LLM_MODEL_COACH", "coach")
 
 
 def _make_llm(model_spec: str, temperature: float = 0.3):
