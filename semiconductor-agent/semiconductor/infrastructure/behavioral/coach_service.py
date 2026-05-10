@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from semiconductor.domain.entities import BehavioralEvaluation, BehavioralQuestion
 from semiconductor.domain.ports import IBehavioralCoach
+from semiconductor.infrastructure.llm.safety import INJECTION_GUARD, wrap_user_input
 from semiconductor.infrastructure.llm.tiers import model_for_role
 
 
@@ -76,10 +77,10 @@ class ClaudeBehavioralCoach(IBehavioralCoach):
             culture_values=_COMPANY_VALUES.get(question.company, "회사 인재상"),
             competency=question.competency,
             question=question.question,
-        )
+        ) + INJECTION_GUARD
         result: _BehavioralSchema = self._llm.invoke([
             {"role": "system", "content": system},
-            {"role": "user", "content": user_answer},
+            {"role": "user", "content": wrap_user_input(user_answer, tag="user_answer")},
         ])
         total = (
             result.situation_score + result.task_score + result.action_score

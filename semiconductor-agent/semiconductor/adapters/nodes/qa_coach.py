@@ -18,6 +18,7 @@ from langgraph.prebuilt import ToolNode
 
 from semiconductor.adapters.state import InterviewState
 from semiconductor.adapters.tools import COACH_TOOLS
+from semiconductor.infrastructure.llm.safety import INJECTION_GUARD
 
 
 def _resolve_coach_model() -> str:
@@ -49,7 +50,7 @@ _COACH_SYSTEM = """당신은 반도체 공학 전문 학습 코치입니다. 소
 - 사용자가 구체적 수치 계산을 요청하면 (예: "tox=10nm일 때 Vth?") → calculate_* 도구
 - 단순 개념 설명이면 도구 호출 없이 한국어로 직접 답변
 
-도구 결과를 받으면 이를 자연스러운 한국어 코칭 문장에 녹여 답변하세요."""
+도구 결과를 받으면 이를 자연스러운 한국어 코칭 문장에 녹여 답변하세요.""" + INJECTION_GUARD
 
 
 def _build_system(state: InterviewState) -> str:
@@ -79,12 +80,27 @@ def _to_chat_messages(msgs: list[BaseMessage]) -> list[dict]:
     return out
 
 
+_MAX_TOOL_CALLS_PER_TURN = 5  # ReAct 무한 루프 가드 — 1 turn에 tool 5회면 충분
+
+
 def qa_coach_node(state: InterviewState) -> dict:
     """Coach LLM with bound tools. May emit tool_calls (loop) or final text (END)."""
     topic = state.get("current_qa_topic") or ""
     if not topic:
         return {
             "display_output": "학습할 주제를 알려주세요. 예시: `/qa TSV 구조`",
+            "coach_tool_calls": 0,
+        }
+
+    # 무한 루프 방지: tool 호출이 한도 초과면 강제 종료
+    if state.get("coach_tool_calls", 0) >= _MAX_TOOL_CALLS_PER_TURN:
+        return {
+            "display_output": (
+                f"⚠️ 도구 호출이 {_MAX_TOOL_CALLS_PER_TURN}회를 초과했습니다. "
+                "지금까지의 정보로 답변을 마무리합니다. 추가 질문은 새로 입력해주세요."
+            ),
+            "coach_tool_calls": 0,
+            "messages": [AIMessage(content="(도구 호출 한도 도달 — 답변 종료)")],
         }
 
     model_spec = _resolve_coach_model()
@@ -101,11 +117,14 @@ def qa_coach_node(state: InterviewState) -> dict:
 
     update: dict = {"messages": [response]}
 
-    # tool_calls가 없을 때만 hint_count 증가 + 화면 출력
+    # tool_calls가 없을 때만 hint_count 증가 + 화면 출력 + 카운터 리셋
     if not response.tool_calls:
         new_hint = min(state.get("hint_count", 0) + 1, 4)
         update["hint_count"] = new_hint
         update["display_output"] = response.content or ""
+        update["coach_tool_calls"] = 0  # turn 종료 시 리셋
+    else:
+        update["coach_tool_calls"] = state.get("coach_tool_calls", 0) + 1
 
     return update
 

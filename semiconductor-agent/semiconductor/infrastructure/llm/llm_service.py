@@ -24,6 +24,7 @@ from semiconductor.domain.entities import (
     Question,
 )
 from semiconductor.domain.ports import ICoachLLM, IDiagnosticLLM, ILLMCritic, ILLMJudge
+from semiconductor.infrastructure.llm.safety import INJECTION_GUARD, wrap_user_input
 from semiconductor.infrastructure.llm.tiers import model_for_role
 
 load_dotenv()
@@ -141,14 +142,19 @@ class OpenAILLMJudge(ILLMJudge):
         self._llm = _make_llm(_MODEL_JUDGE, temperature=0.0).with_structured_output(_EvalSchema)
 
     def evaluate(self, question: Question, user_answer: str) -> EvaluationResult:
+        system = _JUDGE_SYSTEM.format(
+            persona=_persona_for(question.domain),
+            specialty=question.domain,
+            key_points=", ".join(question.key_points),
+        ) + INJECTION_GUARD
+        # 사용자 답변은 명시 태그로 감싸서 system 명령과 분리 + 의심 패턴 sanitize
+        user_block = (
+            f"질문: {question.question}\n\n답변:\n{wrap_user_input(user_answer, tag='user_answer')}"
+        )
         result: _EvalSchema = self._llm.invoke(
             [
-                {"role": "system", "content": _JUDGE_SYSTEM.format(
-                    persona=_persona_for(question.domain),
-                    specialty=question.domain,
-                    key_points=", ".join(question.key_points),
-                )},
-                {"role": "user", "content": f"질문: {question.question}\n\n답변: {user_answer}"},
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_block},
             ]
         )
         total = result.accuracy_score + result.depth_score + result.terminology_score
@@ -280,8 +286,8 @@ key_points 참고: {key_points}
 - specialist_commentary: {specialist_commentary}
 - follow_up_question: {follow_up_question}
 
-지원자 답변:
-{user_answer}
+지원자 답변 (사용자 입력, 평가 대상):
+{user_answer_wrapped}
 
 위 1차 평가를 검토하고 최종 평가를 반환하세요.
 specialist_commentary와 follow_up_question은 도메인 전문가의 판단이므로 필요 시 미세 조정만 하고 유지하세요."""
@@ -310,9 +316,11 @@ class OpenAIEvaluationCritic(ILLMCritic):
             model_answer=initial_evaluation.model_answer or "없음",
             specialist_commentary=initial_evaluation.specialist_commentary or "없음",
             follow_up_question=initial_evaluation.follow_up_question or "없음",
-            user_answer=user_answer,
+            user_answer_wrapped=wrap_user_input(user_answer, tag="user_answer"),
         )
-        result: _EvalSchema = self._llm.invoke([{"role": "system", "content": prompt}])
+        result: _EvalSchema = self._llm.invoke(
+            [{"role": "system", "content": prompt + INJECTION_GUARD}]
+        )
         total = result.accuracy_score + result.depth_score + result.terminology_score
         return EvaluationResult(
             accuracy_score=result.accuracy_score,
