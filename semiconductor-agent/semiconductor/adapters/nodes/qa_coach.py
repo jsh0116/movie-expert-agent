@@ -3,20 +3,26 @@
 Loop:
   qa_coach (LLM with tools bound) ──tool_calls?──▶ coach_tools (ToolNode) ──▶ qa_coach
                                   └─no──▶ END
+
+Provider: anthropic:claude-sonnet-4-6 by default (한국어 + tool use 강점).
+LLM_MODEL_COACH env var로 자유롭게 변경 가능.
 """
 from __future__ import annotations
 
 import os
 
+from langchain.chat_models import init_chat_model
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END
 from langgraph.prebuilt import ToolNode
 
 from semiconductor.adapters.state import InterviewState
 from semiconductor.adapters.tools import COACH_TOOLS
 
-_MODEL_COACH = os.getenv("LLM_MODEL_COACH", "gpt-4o-mini")
+
+def _resolve_coach_model() -> str:
+    raw = os.getenv("LLM_MODEL_COACH", "anthropic:claude-sonnet-4-6")
+    return raw if ":" in raw else f"openai:{raw}"
 
 _COACH_RULES = {
     0: "선행 지식을 파악하세요. '어디까지 알고 있어요?' 같은 탐색 질문으로 시작. 절대 직접 답하지 마세요.",
@@ -76,11 +82,12 @@ def qa_coach_node(state: InterviewState) -> dict:
             "display_output": "학습할 주제를 알려주세요. 예시: `/qa TSV 구조`",
         }
 
+    model_spec = _resolve_coach_model()
+    kwargs: dict = {"temperature": 0.5}
     base_url = os.getenv("AI_BASE_URL")
-    kwargs: dict = {"model": _MODEL_COACH, "temperature": 0.5}
-    if base_url:
+    if base_url and model_spec.startswith("openai:"):
         kwargs["base_url"] = base_url
-    llm = ChatOpenAI(**kwargs).bind_tools(COACH_TOOLS)
+    llm = init_chat_model(model_spec, **kwargs).bind_tools(COACH_TOOLS)
 
     chat_msgs: list[dict] = [{"role": "system", "content": _build_system(state)}]
     chat_msgs.extend(_to_chat_messages(state.get("messages", [])))

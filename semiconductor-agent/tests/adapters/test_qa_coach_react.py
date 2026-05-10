@@ -41,15 +41,15 @@ class TestQaCoachNode:
         result = qa_coach_node(s)
         assert "주제를 알려주세요" in result["display_output"]
 
-    @patch("semiconductor.adapters.nodes.qa_coach.ChatOpenAI")
-    def test_LLM이_tool_calls_없는_응답_반환_시_hint_count_증가(self, mock_chat_cls):
+    @patch("semiconductor.adapters.nodes.qa_coach.init_chat_model")
+    def test_LLM이_tool_calls_없는_응답_반환_시_hint_count_증가(self, mock_init):
         # 일반 응답 → END 경로, hint_count 증가
         ai_msg = AIMessage(content="ALD에 대해 어디까지 아세요?", tool_calls=[])
         bound = MagicMock()
         bound.invoke.return_value = ai_msg
         chat = MagicMock()
         chat.bind_tools.return_value = bound
-        mock_chat_cls.return_value = chat
+        mock_init.return_value = chat
 
         s = dict(create_initial_state())
         s["current_qa_topic"] = "ALD"
@@ -62,8 +62,8 @@ class TestQaCoachNode:
         assert result["display_output"] == "ALD에 대해 어디까지 아세요?"
         assert result["messages"][0] == ai_msg
 
-    @patch("semiconductor.adapters.nodes.qa_coach.ChatOpenAI")
-    def test_LLM이_tool_calls_반환시_hint_count_증가_안함_display도_안함(self, mock_chat_cls):
+    @patch("semiconductor.adapters.nodes.qa_coach.init_chat_model")
+    def test_LLM이_tool_calls_반환시_hint_count_증가_안함_display도_안함(self, mock_init):
         # tool_calls 응답 → 루프 (아직 최종 답변 아님). hint_count 보존.
         ai_msg = AIMessage(content="", tool_calls=[
             {"id": "call_1", "name": "industry_trend_search", "args": {"query": "HBM"}}
@@ -72,7 +72,7 @@ class TestQaCoachNode:
         bound.invoke.return_value = ai_msg
         chat = MagicMock()
         chat.bind_tools.return_value = bound
-        mock_chat_cls.return_value = chat
+        mock_init.return_value = chat
 
         s = dict(create_initial_state())
         s["current_qa_topic"] = "HBM"
@@ -84,3 +84,21 @@ class TestQaCoachNode:
         assert "hint_count" not in result  # 보존
         assert "display_output" not in result  # 아직 출력 안 함
         assert result["messages"][0] == ai_msg
+
+    @patch("semiconductor.adapters.nodes.qa_coach.init_chat_model")
+    def test_qa_coach는_Anthropic_Claude_Sonnet_provider_spec으로_호출(self, mock_init):
+        # 권장 매핑 확인 — coach는 Claude
+        ai_msg = AIMessage(content="x", tool_calls=[])
+        bound = MagicMock()
+        bound.invoke.return_value = ai_msg
+        chat = MagicMock()
+        chat.bind_tools.return_value = bound
+        mock_init.return_value = chat
+
+        s = dict(create_initial_state())
+        s["current_qa_topic"] = "FinFET"
+        s["messages"] = [HumanMessage(content="설명해줘")]
+        qa_coach_node(s)
+
+        spec = mock_init.call_args.args[0]
+        assert spec == "anthropic:claude-sonnet-4-6"

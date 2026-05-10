@@ -75,11 +75,14 @@ START → orchestrator
 
 - `.env`에 `OPENAI_API_KEY` 필수
 - `AI_BASE_URL` 설정 시 커스텀 엔드포인트 사용
-- 모델 차등화 (env var로 오버라이드 가능):
-  - `LLM_MODEL_JUDGE` (기본 `gpt-4o`, temp=0.0) — 면접 답변 평가, 결정론적
-  - `LLM_MODEL_CRITIC` (기본 `gpt-4o`, temp=0.0) — Self-Critique 평가 검증
-  - `LLM_MODEL_DIAGNOSTIC` (기본 `gpt-4o`, temp=0.0) — 도메인별 진단, 결정론적
-  - `LLM_MODEL_COACH` (기본 `gpt-4o-mini`, temp=0.5) — 소크라테스 코칭, 약간의 다양성
+- Multi-provider routing (`init_chat_model` 기반, env var로 자유 교체):
+  - `LLM_MODEL_JUDGE` (기본 `openai:gpt-4o`, temp=0.0) — structured output 안정성
+  - `LLM_MODEL_CRITIC` (기본 `anthropic:claude-sonnet-4-6`, temp=0.0) — 비판적 사고·검증
+  - `LLM_MODEL_DIAGNOSTIC` (기본 `openai:gpt-4o`, temp=0.0) — structured 분석
+  - `LLM_MODEL_COACH` (기본 `anthropic:claude-sonnet-4-6`, temp=0.5) — 한국어 + ReAct tool calling
+  - provider prefix 없으면 `openai:` 자동 보완 (예: `gpt-5` → `openai:gpt-5`)
+  - `AI_BASE_URL`은 OpenAI provider일 때만 적용 (OpenAI-호환 endpoint 변수)
+  - 필요한 API 키: `OPENAI_API_KEY` + `ANTHROPIC_API_KEY` (Phase 2 추가 시 `GOOGLE_API_KEY`)
 - LLM judge 루브릭: 정확성 40 + 깊이 30 + 전문용어 30 = 100점
 
 ## 평가 파이프라인 ("교수 초과" 메커니즘)
