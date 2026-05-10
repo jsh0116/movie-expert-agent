@@ -182,6 +182,50 @@ class EssayEvaluation:
         return "미흡"
 
 
+# ── 적성검사 (GSAT / SKCT) ────────────────────────────────────────
+
+VALID_APTITUDE_TESTS = frozenset(("GSAT", "SKCT"))
+VALID_APTITUDE_DOMAINS = frozenset(("수리", "추리", "언어", "공간"))
+
+
+@dataclass(frozen=True)
+class AptitudeQuestion:
+    """객관식 적성검사 문제. LLM 미사용 — 정답·해설 모두 정적."""
+
+    test_type: str           # GSAT | SKCT
+    domain: str              # 수리 | 추리 | 언어 | 공간
+    question: str
+    choices: list[str]       # 보통 4개
+    correct_index: int       # 0-based
+    explanation: str         # 풀이 (정답·오답 이유 모두 포함)
+
+    def __post_init__(self):
+        if self.test_type not in VALID_APTITUDE_TESTS:
+            raise ValueError(f"test_type은 {VALID_APTITUDE_TESTS} 중 하나여야 합니다.")
+        if self.domain not in VALID_APTITUDE_DOMAINS:
+            raise ValueError(f"domain은 {VALID_APTITUDE_DOMAINS} 중 하나여야 합니다.")
+        if not self.question.strip():
+            raise ValueError("question은 비어있을 수 없습니다.")
+        if not (2 <= len(self.choices) <= 5):
+            raise ValueError(f"choices는 2~5개여야 합니다. 받은 값: {len(self.choices)}")
+        if not (0 <= self.correct_index < len(self.choices)):
+            raise ValueError(f"correct_index가 범위를 벗어남: {self.correct_index}")
+
+
+@dataclass
+class AptitudeResult:
+    test_type: str
+    domain: str
+    question: str
+    user_choice: int          # 0-based, -1 if invalid
+    correct_index: int
+    explanation: str
+
+    @property
+    def is_correct(self) -> bool:
+        return self.user_choice == self.correct_index
+
+
 # ── 인성면접 (Behavioral STAR) ───────────────────────────────────
 
 VALID_COMPETENCIES = frozenset(("리더십", "문제해결", "협력", "도전", "갈등극복"))

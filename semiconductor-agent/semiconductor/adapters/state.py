@@ -44,6 +44,13 @@ class InterviewState(TypedDict):
     behavioral_asked_count: int
     behaviorals_evaluated: list[dict]
 
+    # ── Aptitude Test (GSAT/SKCT) tracking ────────────────────────
+    aptitude_test_type: Optional[str]      # "GSAT" | "SKCT"
+    aptitude_phase: str                    # "present" | "evaluate"
+    aptitude_asked_count: int
+    aptitude_current: Optional[dict]       # 현재 출제된 문제 (검증용)
+    aptitude_results: list[dict]           # 누적 답변 결과
+
     # ── Conversation history (accumulates across turns) ───────────
     messages: Annotated[list[BaseMessage], add_messages]
 
@@ -84,6 +91,11 @@ def create_initial_state(
         behavioral_phase="present",
         behavioral_asked_count=0,
         behaviorals_evaluated=[],
+        aptitude_test_type=None,
+        aptitude_phase="present",
+        aptitude_asked_count=0,
+        aptitude_current=None,
+        aptitude_results=[],
         messages=[],
         display_output=(
             "👋 반도체 면접 준비 에이전트에 오신 걸 환영합니다!\n\n"
@@ -92,6 +104,7 @@ def create_initial_state(
             "  /qa [주제] — 개념 학습 코치 (소크라테스 방식)\n"
             "  /자소서 [회사] [항목] — 자소서 첨삭 (예: /자소서 samsung_ds 지원동기)\n"
             "  /인성 [회사] — 인성면접 STAR 기법 평가 (예: /인성 samsung_ds)\n"
+            "  /적성 [GSAT|SKCT] — 적성검사 객관식 (1, 2, 3, 4 숫자로 답변)\n"
             "  /진단     — 이해도 진단 및 시각화\n"
         ),
         chart_png=None,

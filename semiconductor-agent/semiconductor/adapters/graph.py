@@ -23,6 +23,10 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 from langgraph.types import Send
 
+from semiconductor.adapters.nodes.aptitude_test import (
+    aptitude_evaluate_node,
+    aptitude_present_node,
+)
 from semiconductor.adapters.nodes.behavioral_coach import (
     behavioral_evaluate_node,
     behavioral_present_node,
@@ -82,6 +86,8 @@ def create_app(
     builder.add_node("essay_evaluate", essay_evaluate_node)
     builder.add_node("behavioral_present", behavioral_present_node)
     builder.add_node("behavioral_evaluate", behavioral_evaluate_node)
+    builder.add_node("aptitude_present", aptitude_present_node)
+    builder.add_node("aptitude_evaluate", aptitude_evaluate_node)
     builder.add_node("diagnostic", diagnostic_node)
 
     builder.set_entry_point("orchestrator")
@@ -98,6 +104,8 @@ def create_app(
             "essay_evaluate": "essay_evaluate",
             "behavioral_present": "behavioral_present",
             "behavioral_evaluate": "behavioral_evaluate",
+            "aptitude_present": "aptitude_present",
+            "aptitude_evaluate": "aptitude_evaluate",
             "diagnostic": "diagnostic",
             END: END,
         },
@@ -128,6 +136,8 @@ def create_app(
     builder.add_edge("essay_evaluate", END)
     builder.add_edge("behavioral_present", END)
     builder.add_edge("behavioral_evaluate", END)
+    builder.add_edge("aptitude_present", END)
+    builder.add_edge("aptitude_evaluate", END)
     builder.add_edge("diagnostic", END)
 
     compile_kwargs = {}

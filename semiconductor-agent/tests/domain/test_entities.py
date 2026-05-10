@@ -1,6 +1,8 @@
 """TDD: Domain entity invariants — write tests FIRST, then implement."""
 import pytest
 from semiconductor.domain.entities import (
+    AptitudeQuestion,
+    AptitudeResult,
     BehavioralEvaluation,
     BehavioralQuestion,
     DiagnosticResult,
@@ -301,3 +303,57 @@ class TestBehavioralEvaluation:
                 result_score=10, culture_fit=5, total_score=99,  # actual = 55
                 feedback="x", strong_points=[], weak_points=[],
             )
+
+
+class TestAptitudeQuestion:
+    def test_정상_생성(self):
+        q = AptitudeQuestion(
+            test_type="GSAT", domain="수리",
+            question="1+1=?", choices=["1", "2", "3", "4"],
+            correct_index=1, explanation="2가 정답",
+        )
+        assert q.choices[q.correct_index] == "2"
+
+    def test_잘못된_test_type_거부(self):
+        with pytest.raises(ValueError):
+            AptitudeQuestion(
+                test_type="ABC", domain="수리",
+                question="x", choices=["a", "b"], correct_index=0, explanation="",
+            )
+
+    def test_잘못된_domain_거부(self):
+        with pytest.raises(ValueError):
+            AptitudeQuestion(
+                test_type="GSAT", domain="우주",
+                question="x", choices=["a", "b"], correct_index=0, explanation="",
+            )
+
+    def test_correct_index_범위_초과_거부(self):
+        with pytest.raises(ValueError):
+            AptitudeQuestion(
+                test_type="GSAT", domain="수리",
+                question="x", choices=["a", "b"], correct_index=5, explanation="",
+            )
+
+    def test_choices_1개는_거부(self):
+        with pytest.raises(ValueError):
+            AptitudeQuestion(
+                test_type="GSAT", domain="수리",
+                question="x", choices=["only"], correct_index=0, explanation="",
+            )
+
+
+class TestAptitudeResult:
+    def test_is_correct_정답일때_True(self):
+        r = AptitudeResult(
+            test_type="GSAT", domain="수리", question="x",
+            user_choice=2, correct_index=2, explanation="",
+        )
+        assert r.is_correct is True
+
+    def test_is_correct_오답일때_False(self):
+        r = AptitudeResult(
+            test_type="GSAT", domain="수리", question="x",
+            user_choice=1, correct_index=2, explanation="",
+        )
+        assert r.is_correct is False
